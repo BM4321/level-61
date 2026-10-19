@@ -310,3 +310,140 @@ def test_dm14():
         bal = bal * 1.01 - 100_000
         month += 1
     assert month == 23 and math.isclose(math.log(1.25) / math.log(1.01), 22.43, abs_tol=0.01)
+
+
+# ------------------------------------------------------------------ DM-15
+def _dijkstra(adj, s):
+    import heapq
+    dist, h = {s: 0}, [(0, s)]
+    while h:
+        d, u = heapq.heappop(h)
+        if d > dist[u]:
+            continue
+        for v, w in adj.get(u, []):
+            if d + w < dist.get(v, float("inf")):
+                dist[v] = d + w
+                heapq.heappush(h, (d + w, v))
+    return dist
+
+
+def _undirected(edges):
+    adj = {}
+    for u, v, w in edges:
+        adj.setdefault(u, []).append((v, w))
+        adj.setdefault(v, []).append((u, w))
+    return adj
+
+
+def _chromatic(vertices, edges):
+    for k in range(1, len(vertices) + 1):
+        for colours in itertools.product(range(k), repeat=len(vertices)):
+            c = dict(zip(vertices, colours))
+            if all(c[a] != c[b] for a, b in edges):
+                return k
+    return len(vertices)
+
+
+def test_dm15():
+    g = _undirected([("A", "B", 4), ("A", "C", 2), ("B", "C", 1), ("B", "D", 5), ("C", "D", 8), ("C", "E", 10),
+                     ("D", "E", 2), ("D", "F", 6), ("E", "F", 3)])
+    assert _dijkstra(g, "A") == {"A": 0, "B": 3, "C": 2, "D": 8, "E": 10, "F": 13}
+    g2 = _undirected([("S", "A", 7), ("S", "B", 2), ("B", "A", 3), ("A", "C", 1), ("B", "C", 8), ("C", "T", 2),
+                      ("B", "T", 10)])
+    assert _dijkstra(g2, "S") == {"S": 0, "B": 2, "A": 5, "C": 6, "T": 8}
+    kon = [("N", "I"), ("N", "I"), ("S", "I"), ("S", "I"), ("N", "E"), ("S", "E"), ("I", "E")]
+    assert degrees(kon) == {"N": 3, "I": 5, "S": 3, "E": 3} and euler_status("NISE", kon) == "none"
+    assert euler_status("ABCD", [("A", "B"), ("B", "C"), ("C", "D"), ("D", "A"), ("A", "C")]) == "path"
+    k4 = list(itertools.combinations("ABCD", 2))
+    k5 = list(itertools.combinations("ABCDE", 2))
+    assert euler_status("ABCD", k4) == "none" and euler_status("ABCDE", k5) == "circuit"
+    courses = {"PY": {"S1", "S2", "S3"}, "DM": {"S2", "S4"}, "CS": {"S1", "S4"}, "PM": {"S3", "S5"},
+               "SD": {"S5", "S6"}, "FYP": {"S6", "S2"}}
+    conflict = [(a, b) for a, b in itertools.combinations(courses, 2) if courses[a] & courses[b]]
+    assert _chromatic(list(courses), conflict) == 3
+    slot = {"PY": 1, "SD": 1, "DM": 2, "PM": 2, "CS": 3, "FYP": 3}
+    assert all(slot[a] != slot[b] for a, b in conflict)
+    labs = [("L1", "L2"), ("L2", "L3"), ("L3", "L4"), ("L4", "L5"), ("L5", "L1"), ("L1", "L4")]
+    assert _chromatic(["L1", "L2", "L3", "L4", "L5"], labs) == 3
+    s = {"L1": 1, "L3": 1, "L2": 2, "L4": 2, "L5": 3}
+    assert all(s[a] != s[b] for a, b in labs)
+    assert _chromatic(list(range(7)), [(i, (i + 1) % 7) for i in range(7)]) == 3
+    assert _chromatic(list(range(6)), [(i, (i + 1) % 6) for i in range(6)]) == 2
+
+
+# ------------------------------------------------------------------ DM-16
+def _count_spanning_trees(vertices, edges):
+    n = len(vertices)
+    return sum(1 for sub in itertools.combinations(edges, n - 1) if is_connected(vertices, list(sub)))
+
+
+def test_dm16():
+    E = [("A", "B", 4), ("A", "C", 3), ("B", "C", 2), ("B", "D", 5), ("C", "D", 7), ("C", "E", 6),
+         ("D", "E", 1), ("D", "F", 4), ("E", "F", 8)]
+    assert kruskal("ABCDEF", E)[0] == 15
+    E8 = [("P", "Q", 7), ("P", "R", 5), ("Q", "R", 8), ("Q", "S", 9), ("Q", "T", 7), ("R", "T", 5), ("S", "T", 8),
+          ("S", "U", 5), ("T", "U", 6), ("T", "V", 9), ("U", "V", 11)]
+    total, tree = kruskal("PQRSTUV", E8)
+    assert total == 37 and len(tree) == 6
+    c4 = [(1, 2), (2, 3), (3, 4), (4, 1)]
+    assert _count_spanning_trees([1, 2, 3, 4], c4) == 4
+    k4 = list(itertools.combinations([1, 2, 3, 4], 2))
+    assert _count_spanning_trees([1, 2, 3, 4], k4) == 16 == 4 ** 2
+    k4_minus = [e for e in k4 if e != (1, 2)]
+    assert _count_spanning_trees([1, 2, 3, 4], k4_minus) == 8
+    assert (2 * 15 + 1, 15 + 1, 4 * 100 + 1, 3 * 100 + 1) == (31, 16, 401, 301)
+    assert math.ceil(math.log2(1000)) == 10 and (3 + 4) * (5 - 2) == 21
+
+
+# ------------------------------------------------------------------ DM-17
+def test_dm17():
+    V3, V4 = ["A", "B", "C"], ["A", "B", "C", "D"]
+    assert minterms("C or (A and not B)", V3) == [1, 3, 4, 5, 7]
+    assert minterms("not B or (A and C)", V4) == [0, 1, 2, 3, 8, 9, 10, 11, 14, 15]
+    assert equivalent("(A and not C) or (not A and B) or (B and not C)", "(A and not C) or (not A and B)", V3)
+    assert minterms("(A and B) or (A and C) or (B and C)", V3) == [3, 5, 6, 7]
+    assert equivalent("(not A and B) or (A and B) or (A and not B)", "A or B", ["A", "B"])
+    assert equivalent("(A and B) or (A and not B and C) or (A and not B and not C)", "A", V3)
+    assert minterms("not C or (A and not B)", V3) == [0, 2, 4, 5, 6]
+    assert minterms("(not B and not D) or (B and D)", V4) == [0, 2, 5, 7, 8, 10, 13, 15]
+    G = "(A1 and not B1) or (A1 and A0 and not B0) or (not B1 and A0 and not B0)"
+    rows = [v for v in itertools.product([0, 1], repeat=4)
+            if evaluate(G, dict(zip(["A1", "A0", "B1", "B0"], map(bool, v))))]
+    assert len(rows) == 6 and all(2 * a1 + a0 > 2 * b1 + b0 for a1, a0, b1, b0 in rows)
+    nand = lambda x, y: 1 - (x & y)  # noqa: E731
+    for x, y in itertools.product([0, 1], repeat=2):
+        n1 = nand(x, y)
+        assert nand(nand(x, n1), nand(y, n1)) == x ^ y
+    a, b, carry, out = [1, 1, 1, 0], [1, 0, 1, 0], 0, []   # bit 0 first: 0111 and 0101
+    for ai, bi in zip(a, b):
+        s = ai ^ bi ^ carry
+        carry = (ai & bi) | (carry & (ai ^ bi))
+        out.append(s)
+    assert out[::-1] == [1, 1, 0, 0] and carry == 0
+
+
+# ------------------------------------------------------------------ DM-18
+def test_dm18():
+    from fractions import Fraction as Fr
+
+    def bday(n, m=365):
+        p = 1.0
+        for i in range(n):
+            p *= (m - i) / m
+        return 1 - p
+    assert round(bday(23), 3) == 0.507 and bday(22) < 0.5 < bday(23) and round(bday(50), 3) == 0.970
+    post = 0.99 * 0.01 / (0.99 * 0.01 + 0.02 * 0.99)
+    assert math.isclose(post, 1 / 3)
+    assert round(0.99 * 0.001 / (0.99 * 0.001 + 0.02 * 0.999), 3) == 0.047
+    dice = list(itertools.product(range(1, 7), repeat=2))
+    assert Fr(sum(a + b == 7 for a, b in dice), 36) == Fr(1, 6)
+    assert Fr(sum(6 in d for d in dice), 36) == Fr(11, 36)
+    assert Fr(4, 52) * Fr(3, 51) == Fr(1, 221) == Fr(comb(4, 2), comb(52, 2))
+    assert round(1 - 0.9 ** 10, 3) == 0.651 and round(comb(10, 2) * 0.01 * 0.9 ** 8, 3) == 0.194
+    perms = list(itertools.permutations(range(5)))
+    assert Fr(sum(sum(p[i] == i for i in range(5)) for p in perms), len(perms)) == 1
+    assert round(sum(comb(10, k) * 0.25 ** k * 0.75 ** (10 - k) for k in range(5, 11)), 3) == 0.078
+    assert Fr(comb(3, 2), 8) == Fr(3, 8) and Fr(16, 52) == Fr(4, 13)
+    assert round(0.99 ** 8 + 8 * 0.01 * 0.99 ** 7, 4) == 0.9973
+    assert round(190 / 214, 3) == 0.888 and round(776 / 786, 3) == 0.987
+    assert math.isclose(1e14 / (2 * 2 ** 64), 2.7e-6, rel_tol=0.01)
