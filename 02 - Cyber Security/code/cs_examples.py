@@ -7,12 +7,16 @@ import hashlib
 import html
 import hmac
 import ipaddress
+import math
 import os
+import re
 import secrets
 import sqlite3
 import stat
 import struct
 import time
+from collections import Counter
+from datetime import datetime, timedelta
 from urllib.parse import urlsplit
 
 # ---------------------------------------------------------------- CS-03 HOTP / TOTP
@@ -321,3 +325,103 @@ def url_red_flags(url: str, trusted: set[str]) -> list[str]:
         elif edit_distance(host, t) <= 2:
             flags.append(f"lookalike of {t!r}")
     return flags
+
+
+# ---------------------------------------------------------------- CS-14 defensive detection helpers
+
+
+def shannon_entropy(data: bytes) -> float:
+    """Bits per byte (0..8). Packed or encrypted content tends towards 8; text is usually 4-5."""
+    if not data:
+        return 0.0
+    n = len(data)
+    return -sum(c / n * math.log2(c / n) for c in Counter(data).values())
+
+
+def sha256_file(path: str, chunk: int = 65536) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(chunk), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def ioc_hash_matches(root: str, bad_hashes: set[str]) -> list[str]:
+    """Relative paths of files whose SHA-256 is on an indicator-of-compromise list."""
+    hits = []
+    for dirpath, _dirs, files in os.walk(root):
+        for name in files:
+            full = os.path.join(dirpath, name)
+            if not os.path.islink(full) and sha256_file(full) in bad_hashes:
+                hits.append(os.path.relpath(full, root))
+    return sorted(hits)
+
+
+def rule_matches(data: bytes, rules: dict[str, dict]) -> list[str]:
+    """A tiny YARA-like matcher: a rule fires when at least `min` of its byte strings occur."""
+    fired = []
+    for name, rule in rules.items():
+        found = sum(1 for s in rule["strings"] if s in data)
+        if found >= rule.get("min", len(rule["strings"])):
+            fired.append(name)
+    return sorted(fired)
+
+
+# ---------------------------------------------------------------- CS-15 log analysis (constructed sample log)
+
+_AUTH = re.compile(
+    r"^(?P<ts>\S+) host=(?P<host>\S+) sshd\[\d+\]: (?P<result>Accepted|Failed) (?P<method>password|publickey) "
+    r"for (?:invalid user )?(?P<user>\S+) from (?P<ip>\S+) port \d+")
+_SUDO = re.compile(r"^(?P<ts>\S+) host=(?P<host>\S+) sudo: (?P<user>\S+) : .*COMMAND=(?P<command>.+)$")
+
+
+def parse_auth_log(lines) -> list[dict]:
+    """Turn sshd/sudo lines into event dicts; unparseable lines are skipped (count them in real use)."""
+    events = []
+    for line in lines:
+        line = line.rstrip("\n")
+        if m := _AUTH.match(line):
+            e = m.groupdict()
+            e["kind"] = "login_" + e.pop("result").lower()
+            e["invalid_user"] = "invalid user" in line
+        elif m := _SUDO.match(line):
+            e = m.groupdict()
+            e["kind"] = "sudo"
+        else:
+            continue
+        e["ts"] = datetime.fromisoformat(e["ts"].replace("Z", "+00:00"))
+        events.append(e)
+    return events
+
+
+def failure_bursts(events: list[dict], threshold: int = 5, window: timedelta = timedelta(minutes=2)) -> dict[str, int]:
+    """Source IPs with >= threshold failed logins inside any sliding window -> max count in a window."""
+    by_ip: dict[str, list[datetime]] = {}
+    for e in events:
+        if e["kind"] == "login_failed":
+            by_ip.setdefault(e["ip"], []).append(e["ts"])
+    out = {}
+    for ip, times in by_ip.items():
+        times.sort()
+        best, start = 0, 0
+        for end in range(len(times)):
+            while times[end] - times[start] > window:
+                start += 1
+            best = max(best, end - start + 1)
+        if best >= threshold:
+            out[ip] = best
+    return out
+
+
+def success_after_failures(events: list[dict], min_failures: int = 3) -> list[tuple[str, str, datetime]]:
+    """(user, ip, time) for successful logins preceded by >= min_failures consecutive failures from that IP."""
+    streak: dict[str, int] = {}
+    hits = []
+    for e in sorted((e for e in events if e["kind"].startswith("login_")), key=lambda e: e["ts"]):
+        if e["kind"] == "login_failed":
+            streak[e["ip"]] = streak.get(e["ip"], 0) + 1
+        else:
+            if streak.get(e["ip"], 0) >= min_failures:
+                hits.append((e["user"], e["ip"], e["ts"]))
+            streak[e["ip"]] = 0
+    return hits

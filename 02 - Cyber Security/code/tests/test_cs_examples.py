@@ -306,3 +306,69 @@ def test_edit_distance():
 ])
 def test_url_red_flags(url, flags):
     assert url_red_flags(url, TRUSTED) == flags
+
+
+# --- CS-14 detection helpers ---
+from cs_examples import ioc_hash_matches, rule_matches, sha256_file, shannon_entropy  # noqa: E402
+
+
+def test_entropy():
+    assert shannon_entropy(b"") == 0.0
+    assert shannon_entropy(b"aaaa") == 0.0
+    assert shannon_entropy(b"abab") == 1.0
+    assert shannon_entropy(bytes(range(256))) == 8.0
+    assert 3.5 < shannon_entropy(b"The quick brown fox jumps over the lazy dog") < 4.5
+
+
+def test_ioc_hash_matches(tmp_path):
+    (tmp_path / "a.txt").write_bytes(b"harmless")
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "b.bin").write_bytes(b"pretend-indicator")
+    bad = {hashlib.sha256(b"pretend-indicator").hexdigest()}
+    assert ioc_hash_matches(str(tmp_path), bad) == [os.path.join("sub", "b.bin")]
+    assert sha256_file(str(tmp_path / "a.txt")) == hashlib.sha256(b"harmless").hexdigest()
+
+
+def test_rule_matches():
+    rules = {
+        "suspicious_macro": {"strings": [b"AutoOpen", b"Shell(", b"powershell -enc"], "min": 2},
+        "ransom_note": {"strings": [b"your files have been encrypted", b"bitcoin"]},
+    }
+    assert rule_matches(b"Sub AutoOpen() Shell(\"calc\")", rules) == ["suspicious_macro"]
+    assert rule_matches(b"Sub AutoOpen() MsgBox", rules) == []
+    assert rule_matches(b"...your files have been encrypted... pay in bitcoin", rules) == ["ransom_note"]
+
+
+# --- CS-15 log analysis on the constructed sample log ---
+from datetime import timedelta  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+from cs_examples import failure_bursts, parse_auth_log, success_after_failures  # noqa: E402
+
+SAMPLE = Path(__file__).resolve().parent.parent / "data" / "auth_sample.log"
+
+
+def _events():
+    with open(SAMPLE, encoding="utf-8") as f:
+        return parse_auth_log(f)
+
+
+def test_parse_counts():
+    ev = _events()
+    assert len(ev) == 20
+    kinds = [e["kind"] for e in ev]
+    assert kinds.count("login_failed") == 16 and kinds.count("login_accepted") == 3 and kinds.count("sudo") == 1
+    assert parse_auth_log(["garbage line", ""]) == []
+
+
+def test_failure_bursts():
+    ev = _events()
+    assert failure_bursts(ev) == {"203.0.113.50": 7, "192.0.2.99": 5}
+    slow = failure_bursts(ev, threshold=3, window=timedelta(hours=1))
+    assert slow["198.51.100.23"] == 3          # slow guessing only visible with a wider window
+
+
+def test_success_after_failures():
+    hits = success_after_failures(_events())
+    assert [(u, ip) for u, ip, _ in hits] == [("juma", "203.0.113.50")]
+    assert hits[0][2].isoformat() == "2026-03-02T08:14:36+00:00"
