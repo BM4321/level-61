@@ -243,3 +243,70 @@ def test_dm11():
     assert 6 * 180 * 180 == 194_400
     assert combinations_with_repetition(3, 5) == 21 and combinations_with_repetition(3, 4) == 15
     assert multiset_perm([2, 2, 1]) == 30
+
+
+# ------------------------------------------------------------------ DM-12
+def test_dm12():
+    assert math.ceil(100 / 12) == 9 and math.ceil(25 / 12) == 3 and math.ceil(24 / 12) == 2
+    for chosen in itertools.combinations(range(1, 11), 6):
+        assert any(a + b == 11 for a, b in itertools.combinations(chosen, 2))
+    assert not any(a + b == 11 for a, b in itertools.combinations(range(1, 6), 2))
+    assert 30 + 25 + 20 - 10 - 8 - 6 + 3 == 54
+    assert count_divisible(1000, [2, 3, 5]) == 734 and 100 - count_divisible(100, [2, 3, 5, 7]) == 22
+    assert sum(2 ** k for k in range(10)) == 2 ** 10 - 1
+    assert [derangements(n) for n in range(1, 7)] == [0, 1, 2, 9, 44, 265]
+    assert sum(1 for p in itertools.permutations(range(5)) if all(p[i] != i for i in range(5))) == 44
+    assert count_functions(5, 3)["surjective"] == 150
+    assert 22 + 18 - 7 == 33 and count_divisible(60, [2, 3]) == 40
+    # Ramsey R(3,3) = 6: every 2-colouring of K6 has a mono triangle; the pentagon colouring of K5 has none
+    edges6 = list(itertools.combinations(range(6), 2))
+    for colours in itertools.product([0, 1], repeat=len(edges6)):
+        col = dict(zip(edges6, colours))
+        assert any(col[(a, b)] == col[(a, c)] == col[(b, c)] for a, b, c in itertools.combinations(range(6), 3))
+    pent = {(a, b): int((b - a) % 5 in (1, 4)) for a, b in itertools.combinations(range(5), 2)}
+    assert not any(pent[(a, b)] == pent[(a, c)] == pent[(b, c)] for a, b, c in itertools.combinations(range(5), 3))
+
+
+# ------------------------------------------------------------------ DM-13
+def test_dm13():
+    C = math.comb
+    assert C(8, 3) * 2 ** 5 * (-3) ** 3 == -48384
+    assert C(6, 3) * 8 == 160 and C(10, 5) == 252 and C(8, 4) * 16 == 1120
+    assert 101 ** 4 == 104060401 and binomial_coefficients(6) == [1, 6, 15, 20, 15, 6, 1]
+    assert C(7, 3) * 8 == 280 and C(6, 2) * 2 ** 4 == 240
+    assert round(0.99 ** 20, 3) == 0.818 and abs((1 - 0.2 + 0.019 - 0.00114) - 0.99 ** 20) < 1e-4
+    for n in range(0, 15):
+        assert sum(C(n, k) * 2 ** k for k in range(n + 1)) == 3 ** n
+        assert sum(C(n, k) ** 2 for k in range(n + 1)) == C(2 * n, n)
+        assert sum(k * C(n, k) for k in range(n + 1)) == (n * 2 ** (n - 1) if n else 0)
+    assert round(C(8, 4) / 256, 3) == 0.273
+
+
+# ------------------------------------------------------------------ DM-14
+def test_dm14():
+    N = 15
+    a = iterate_recurrence([3], [1], N, lambda k: 2)
+    assert a == [2 * 3 ** n - 1 for n in range(N + 1)]
+    a = iterate_recurrence([5, -6], [1, 4], N)
+    assert a == [2 * 3 ** n - 2 ** n for n in range(N + 1)]
+    a = iterate_recurrence([4, -4], [1, 6], N)
+    assert a == [(1 + 2 * n) * 2 ** n for n in range(N + 1)]
+    a = iterate_recurrence([2], [1], N, lambda k: k)
+    assert a == [3 * 2 ** n - n - 2 for n in range(N + 1)]
+    fib = iterate_recurrence([1, 1], [0, 1], 30)
+    phi, psi = (1 + 5 ** 0.5) / 2, (1 - 5 ** 0.5) / 2
+    assert all(round((phi ** n - psi ** n) / 5 ** 0.5) == fib[n] for n in range(31))
+    no11 = lambda n: sum(1 for b in itertools.product("01", repeat=n) if "11" not in "".join(b))  # noqa: E731
+    assert [no11(n) for n in range(1, 11)] == [fib[n + 2] for n in range(1, 11)]
+    assert iterate_recurrence([2], [0], 10, lambda k: 1) == [2 ** n - 1 for n in range(11)]
+    a = iterate_recurrence([1, 6], [3, 6], N)
+    assert all(5 * a[n] == 12 * 3 ** n + 3 * (-2) ** n for n in range(N + 1))
+    a = iterate_recurrence([6, -9], [2, 9], N)
+    assert a == [(2 + n) * 3 ** n for n in range(N + 1)]
+    assert iterate_recurrence([3], [1], N, lambda k: 4) == [3 ** (n + 1) - 2 for n in range(N + 1)]
+    assert fib[11] == 89
+    bal, month = 2_000_000.0, 0
+    while bal > 0:
+        bal = bal * 1.01 - 100_000
+        month += 1
+    assert month == 23 and math.isclose(math.log(1.25) / math.log(1.01), 22.43, abs_tol=0.01)
