@@ -442,3 +442,28 @@ def test_acquire_copy(tmp_path):
     h1, h2 = acquire_copy(str(src), str(tmp_path / "copy.txt"))
     assert h1 == h2 == hashlib.sha256(b"line 1\nline 2\n").hexdigest()
     assert oct(os.stat(tmp_path / "copy.txt").st_mode & 0o777) == "0o444"
+
+
+# --- CS-18 CVSS v3.1 ---
+from cs_examples import cvss31_base  # noqa: E402
+
+
+@pytest.mark.parametrize("vector, expected", [
+    ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", (9.8, "Critical")),
+    ("CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N", (6.1, "Medium")),     # typical reflected XSS
+    ("CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N", (6.5, "Medium")),     # IDOR read by a logged-in user
+    ("CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H", (7.8, "High")),       # local privilege escalation
+    ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H", (7.5, "High")),       # remote DoS
+    ("CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N", (5.9, "Medium")),
+    ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H", (10.0, "Critical")),
+    ("CVSS:3.1/AV:P/AC:H/PR:H/UI:R/S:U/C:N/I:N/A:N", (0.0, "None")),
+])
+def test_cvss31(vector, expected):
+    assert cvss31_base(vector) == expected
+
+
+def test_cvss_rejects_bad_vectors():
+    with pytest.raises(ValueError):
+        cvss31_base("CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H")
+    with pytest.raises(ValueError):
+        cvss31_base("CVSS:3.1/AV:N/AC:L")

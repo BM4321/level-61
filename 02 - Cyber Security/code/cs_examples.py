@@ -492,3 +492,44 @@ def acquire_copy(src: str, dst: str) -> tuple[str, str]:
     shutil.copy2(src, dst)
     os.chmod(dst, 0o444)
     return h_src, sha256_file(dst)
+
+
+# ---------------------------------------------------------------- CS-18 CVSS v3.1 base score
+# Implements the base-score equations of the FIRST CVSS v3.1 specification (section 7).
+_CVSS_W = {
+    "AV": {"N": 0.85, "A": 0.62, "L": 0.55, "P": 0.2},
+    "AC": {"L": 0.77, "H": 0.44},
+    "UI": {"N": 0.85, "R": 0.62},
+    "CIA": {"H": 0.56, "L": 0.22, "N": 0.0},
+}
+_CVSS_PR = {"U": {"N": 0.85, "L": 0.62, "H": 0.27}, "C": {"N": 0.85, "L": 0.68, "H": 0.5}}
+
+
+def _roundup(x: float) -> float:
+    """CVSS v3.1 Roundup: smallest one-decimal number >= x, robust to floating-point error."""
+    i = round(x * 100000)
+    return i / 100000.0 if i % 10000 == 0 else (math.floor(i / 10000) + 1) / 10.0
+
+
+def cvss31_base(vector: str) -> tuple[float, str]:
+    """'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H' -> (9.8, 'Critical')."""
+    parts = vector.split("/")
+    if parts[0] != "CVSS:3.1":
+        raise ValueError("expected a CVSS:3.1 vector")
+    m = dict(p.split(":") for p in parts[1:])
+    required = ["AV", "AC", "PR", "UI", "S", "C", "I", "A"]
+    if sorted(m) != sorted(required):
+        raise ValueError(f"vector must contain exactly {required}")
+    s = m["S"]
+    iss = 1 - (1 - _CVSS_W["CIA"][m["C"]]) * (1 - _CVSS_W["CIA"][m["I"]]) * (1 - _CVSS_W["CIA"][m["A"]])
+    impact = 6.42 * iss if s == "U" else 7.52 * (iss - 0.029) - 3.25 * (iss - 0.02) ** 15
+    exploit = 8.22 * _CVSS_W["AV"][m["AV"]] * _CVSS_W["AC"][m["AC"]] * _CVSS_PR[s][m["PR"]] * _CVSS_W["UI"][m["UI"]]
+    if impact <= 0:
+        score = 0.0
+    elif s == "U":
+        score = _roundup(min(impact + exploit, 10))
+    else:
+        score = _roundup(min(1.08 * (impact + exploit), 10))
+    rating = ("None" if score == 0 else "Low" if score < 4 else "Medium" if score < 7
+              else "High" if score < 9 else "Critical")
+    return score, rating
