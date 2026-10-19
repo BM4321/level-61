@@ -1,0 +1,2 @@
+{"latitude": -6.8, "longitude": 39.25, "current_units": {"time": "iso8601", "temperature_2m": "°C", "wind_speed_10m": "km/h"},
+ "current": {"time": "2026-10-19T14:00", "interval": 900, "temperature_2m": 30.2, "wind_speed_10m": 18.4, "weather_code": 2}}

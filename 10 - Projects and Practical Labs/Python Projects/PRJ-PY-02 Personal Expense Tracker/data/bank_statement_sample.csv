@@ -1,0 +1,8 @@
+date,category,amount,note
+2026-10-01,food,12000,lunch with team
+2026-10-02,transport,2500,daladala
+2026-10-03,books,45,000,bad amount (unquoted comma)
+2026-10-05,Rent,350000,October rent
+2026-13-01,food,1000,impossible date
+2026-10-06,food,-50,negative
+2026-10-07,airtime,"5,000.50",bundle
