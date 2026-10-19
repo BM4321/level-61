@@ -198,3 +198,111 @@ def test_audit_tree(tmp_path):
     os.chmod(tmp_path / ".env", 0o600)
     os.chmod(tmp_path / "upload", 0o750)
     assert audit_tree(str(tmp_path)) == []
+
+
+# --- CS-11 web defences ---
+from cs_examples import csrf_ok, header_findings, new_csrf_token, render_comment, safe_redirect  # noqa: E402
+
+
+def test_render_comment_escapes():
+    out = render_comment("amina", '<script>alert("x")</script>')
+    assert out == "<p><b>amina</b>: &lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;</p>"
+    assert "<script>" not in render_comment("<img src=x onerror=alert(1)>", "hi")
+
+
+def test_csrf():
+    t = new_csrf_token()
+    assert len(t) >= 43 and csrf_ok(t, t)
+    assert not csrf_ok(t, new_csrf_token()) and not csrf_ok(t, None) and not csrf_ok(None, None) and not csrf_ok("", "")
+
+
+@pytest.mark.parametrize("target, expected", [
+    ("/requests/17", "/requests/17"),
+    ("https://hostel.example.ac.tz/home", "https://hostel.example.ac.tz/home"),
+    ("https://evil.example/phish", "/"),
+    ("//evil.example/phish", "/"),
+    ("http://hostel.example.ac.tz/", "/"),
+    ("javascript:alert(1)", "/"),
+    ("/\\evil.example", "/"),
+    ("https://hostel.example.ac.tz.evil.example/", "/"),
+])
+def test_safe_redirect(target, expected):
+    assert safe_redirect(target, {"hostel.example.ac.tz"}) == expected
+
+
+def test_header_findings_bad_and_good():
+    bad = {"Server": "Apache/2.4.41", "Content-Type": "text/html",
+           "Set-Cookie": "session=abc123; Path=/",
+           "Content-Security-Policy": "script-src 'self' 'unsafe-inline'"}
+    assert header_findings(bad) == [
+        "missing strict-transport-security: enforce HTTPS (HSTS)",
+        "missing x-content-type-options: stop MIME sniffing (should be nosniff)",
+        "missing referrer-policy: limit referrer leakage",
+        "content-security-policy allows inline or any-origin scripts",
+        "no clickjacking protection (CSP frame-ancestors or X-Frame-Options)",
+        "server header discloses a version",
+        "session cookie missing secure",
+        "session cookie missing httponly",
+        "session cookie missing samesite",
+    ]
+    good = {"Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+            "Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'",
+            "X-Content-Type-Options": "nosniff", "Referrer-Policy": "strict-origin-when-cross-origin",
+            "Set-Cookie": "session=abc123; Path=/; Secure; HttpOnly; SameSite=Lax"}
+    assert header_findings(good) == []
+
+
+# --- CS-12 SQL injection demo (in-memory database) ---
+import sqlite3  # noqa: E402
+
+from cs_examples import demo_db, find_user, find_user_UNSAFE, list_users  # noqa: E402
+
+
+def test_unsafe_query_is_injectable():
+    conn = demo_db()
+    assert find_user_UNSAFE(conn, "amina") == [(1, "amina", "student")]
+    assert len(find_user_UNSAFE(conn, "' OR '1'='1")) == 4            # returns every row
+    with pytest.raises(sqlite3.OperationalError):
+        find_user_UNSAFE(conn, "o'brien")                               # legitimate name breaks it
+
+
+def test_parameterised_query_is_not():
+    conn = demo_db()
+    assert find_user(conn, "' OR '1'='1") == []
+    assert find_user(conn, "o'brien") == [(4, "o'brien", "student")]
+    find_user(conn, "x'; DROP TABLE users; --")
+    assert conn.execute("SELECT COUNT(*) FROM users").fetchone() == (4,)
+
+
+def test_sort_allow_list_and_like_escaping():
+    conn = demo_db()
+    assert [r[1] for r in list_users(conn, "username")] == ["amina", "juma", "mrs_k", "o'brien"]
+    assert [r[1] for r in list_users(conn, "role", descending=True)][0] == "mrs_k"
+    with pytest.raises(ValueError):
+        list_users(conn, "id; DROP TABLE users")
+    assert [r[1] for r in list_users(conn, name_contains="_")] == ["mrs_k"]   # literal underscore
+    assert list_users(conn, name_contains="%") == []
+
+
+# --- CS-13 phishing link heuristics ---
+from cs_examples import edit_distance, url_red_flags  # noqa: E402
+
+TRUSTED = {"chuo.example", "bankmfano.example"}  # fictional organisations on reserved .example names
+
+
+def test_edit_distance():
+    assert edit_distance("kitten", "sitting") == 3
+    assert edit_distance("", "abc") == 3 and edit_distance("same", "same") == 0
+
+
+@pytest.mark.parametrize("url, flags", [
+    ("https://chuo.example/results", []),
+    ("https://aris.chuo.example/login", []),
+    ("http://chuo.example/", ["not https"]),
+    ("https://chu0.example/login", ["lookalike of 'chuo.example'"]),
+    ("https://chuo.example.verify-account.test/", ["contains trusted name 'chuo.example' but is a different domain"]),
+    ("https://chuo.example@203.0.113.9/", ["userinfo '@' in URL hides the real host", "raw IP address instead of a domain"]),
+    ("https://xn--bnkmfano-16g.example/", ["punycode (possible homograph) domain"]),
+])
+def test_url_red_flags(url, flags):
+    assert url_red_flags(url, TRUSTED) == flags

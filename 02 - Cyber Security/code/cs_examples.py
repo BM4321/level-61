@@ -4,12 +4,16 @@ Defensive teaching code. Standard library only (Python 3.10+).
 """
 import base64
 import hashlib
+import html
 import hmac
 import ipaddress
 import os
+import secrets
+import sqlite3
 import stat
 import struct
 import time
+from urllib.parse import urlsplit
 
 # ---------------------------------------------------------------- CS-03 HOTP / TOTP
 
@@ -179,3 +183,141 @@ def audit_tree(root: str, secret_names: tuple[str, ...] = (".env", "id_rsa", "id
             is_secret = any(name == s or name.endswith(s) for s in secret_names)
             out.extend(permission_findings(os.path.relpath(full, root), stat.S_IMODE(st.st_mode), secret=is_secret))
     return sorted(out)
+
+
+# ---------------------------------------------------------------- CS-11 web application defences
+
+
+def render_comment(author: str, text: str) -> str:
+    """Output-encode untrusted data for an HTML element context (prevents stored/reflected XSS)."""
+    return f"<p><b>{html.escape(author)}</b>: {html.escape(text)}</p>"
+
+
+def new_csrf_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def csrf_ok(session_token: str | None, submitted: str | None) -> bool:
+    """Synchronizer-token check: the form value must equal the token stored in the server session."""
+    return bool(session_token) and bool(submitted) and hmac.compare_digest(session_token, submitted)
+
+
+def safe_redirect(target: str, allowed_hosts: set[str], fallback: str = "/") -> str:
+    """Allow relative paths and allow-listed hosts only (prevents open redirects)."""
+    parts = urlsplit(target)
+    if target.startswith("//") or "\\" in target:
+        return fallback
+    if not parts.scheme and not parts.netloc and target.startswith("/"):
+        return target
+    if parts.scheme == "https" and parts.hostname in allowed_hosts:
+        return target
+    return fallback
+
+
+RECOMMENDED_HEADERS = {
+    "strict-transport-security": "enforce HTTPS (HSTS)",
+    "content-security-policy": "restrict script sources (XSS mitigation)",
+    "x-content-type-options": "stop MIME sniffing (should be nosniff)",
+    "referrer-policy": "limit referrer leakage",
+}
+
+
+def header_findings(headers: dict[str, str]) -> list[str]:
+    """Review HTTP response headers (names are case-insensitive) and cookie flags."""
+    h = {k.lower(): v for k, v in headers.items()}
+    findings = [f"missing {name}: {why}" for name, why in RECOMMENDED_HEADERS.items() if name not in h]
+    if h.get("x-content-type-options", "nosniff").lower() != "nosniff":
+        findings.append("x-content-type-options should be nosniff")
+    csp = h.get("content-security-policy", "")
+    if "'unsafe-inline'" in csp or "script-src *" in csp:
+        findings.append("content-security-policy allows inline or any-origin scripts")
+    if "frame-ancestors" not in csp and "x-frame-options" not in h:
+        findings.append("no clickjacking protection (CSP frame-ancestors or X-Frame-Options)")
+    if "server" in h and any(ch.isdigit() for ch in h["server"]):
+        findings.append("server header discloses a version")
+    cookie = h.get("set-cookie")
+    if cookie:
+        flags = {p.strip().split("=")[0].lower() for p in cookie.split(";")[1:]}
+        for flag in ("secure", "httponly", "samesite"):
+            if flag not in flags:
+                findings.append(f"session cookie missing {flag}")
+    return findings
+
+
+# ---------------------------------------------------------------- CS-12 SQL injection: unsafe vs safe
+# Local, in-memory training database only. The unsafe function exists to be studied and tested.
+
+
+def demo_db() -> sqlite3.Connection:
+    conn = sqlite3.connect(":memory:")
+    conn.executescript("""
+        CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, role TEXT);
+        INSERT INTO users (username, role) VALUES ('amina', 'student'), ('juma', 'technician'),
+                                                  ('mrs_k', 'warden'), ('o''brien', 'student');
+    """)
+    return conn
+
+
+def find_user_UNSAFE(conn: sqlite3.Connection, username: str) -> list[tuple]:
+    """INSECURE (string formatting builds SQL from input). For the injection demonstration only."""
+    return conn.execute(f"SELECT id, username, role FROM users WHERE username = '{username}'").fetchall()
+
+
+def find_user(conn: sqlite3.Connection, username: str) -> list[tuple]:
+    """Parameterised query: the driver sends the value separately from the SQL text."""
+    return conn.execute("SELECT id, username, role FROM users WHERE username = ?", (username,)).fetchall()
+
+
+SORTABLE = {"username": "username", "role": "role", "id": "id"}
+
+
+def list_users(conn: sqlite3.Connection, sort: str = "id", descending: bool = False,
+               name_contains: str = "") -> list[tuple]:
+    """Identifiers can't be parameters, so map them through an allow-list; escape LIKE wildcards."""
+    column = SORTABLE.get(sort)
+    if column is None:
+        raise ValueError(f"cannot sort by {sort!r}")
+    pattern = "%" + name_contains.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+    sql = (f"SELECT id, username, role FROM users WHERE username LIKE ? ESCAPE '\\' "
+           f"ORDER BY {column} {'DESC' if descending else 'ASC'}")
+    return conn.execute(sql, (pattern,)).fetchall()
+
+
+# ---------------------------------------------------------------- CS-13 phishing-link red flags
+
+
+def edit_distance(a: str, b: str) -> int:
+    """Levenshtein distance (dynamic programming), used to spot lookalike domains."""
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def url_red_flags(url: str, trusted: set[str]) -> list[str]:
+    """Heuristic warnings for a link. Absence of flags does NOT prove a link is safe."""
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    flags = []
+    if parts.scheme != "https":
+        flags.append("not https")
+    if "@" in parts.netloc:
+        flags.append("userinfo '@' in URL hides the real host")
+    try:
+        ipaddress.ip_address(host)
+        flags.append("raw IP address instead of a domain")
+    except ValueError:
+        pass
+    if host.startswith("xn--") or ".xn--" in host:
+        flags.append("punycode (possible homograph) domain")
+    if host in trusted or any(host.endswith("." + t) for t in trusted):
+        return flags
+    for t in trusted:
+        if t in host:
+            flags.append(f"contains trusted name {t!r} but is a different domain")
+        elif edit_distance(host, t) <= 2:
+            flags.append(f"lookalike of {t!r}")
+    return flags
