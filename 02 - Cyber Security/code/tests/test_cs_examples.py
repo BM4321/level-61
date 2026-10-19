@@ -45,3 +45,29 @@ def test_authorize_matrix(user, action, req, allowed):
     else:
         with pytest.raises(Forbidden):
             authorize(user, action, req)
+
+
+# --- CS-07 toy RSA / Diffie-Hellman numbers (teaching values only; never use small keys) ---
+
+def test_cs07_toy_rsa_worked_example():
+    p, q, e = 61, 53, 17
+    n, phi = p * q, (p - 1) * (q - 1)
+    d = pow(e, -1, phi)
+    assert (n, phi, d) == (3233, 3120, 2753)
+    c = pow(65, e, n)
+    assert c == 2790 and pow(c, d, n) == 65
+
+
+def test_cs07_practice3_rsa():
+    n, phi, e = 11 * 13, 10 * 12, 7
+    d = pow(e, -1, phi)
+    assert (n, phi, d) == (143, 120, 103)
+    assert pow(9, e, n) == 48 and pow(48, d, n) == 9
+
+
+def test_cs07_diffie_hellman():
+    p, g = 23, 5
+    A, B = pow(g, 6, p), pow(g, 15, p)
+    assert (A, B) == (8, 19) and pow(B, 6, p) == pow(A, 15, p) == 2
+    A, B = pow(g, 4, p), pow(g, 3, p)
+    assert (A, B) == (4, 10) and pow(B, 4, p) == pow(A, 3, p) == 18
