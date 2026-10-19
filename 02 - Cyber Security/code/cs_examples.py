@@ -7,10 +7,12 @@ import hashlib
 import html
 import hmac
 import ipaddress
+import json
 import math
 import os
 import re
 import secrets
+import shutil
 import sqlite3
 import stat
 import struct
@@ -425,3 +427,68 @@ def success_after_failures(events: list[dict], min_failures: int = 3) -> list[tu
                 hits.append((e["user"], e["ip"], e["ts"]))
             streak[e["ip"]] = 0
     return hits
+
+
+# ---------------------------------------------------------------- CS-16 risk calculations
+
+
+def ale(asset_value: float, exposure_factor: float, aro: float) -> tuple[float, float]:
+    """Quantitative risk: SLE = AV x EF; ALE = SLE x ARO. Returns (SLE, ALE)."""
+    if not 0 <= exposure_factor <= 1 or aro < 0 or asset_value < 0:
+        raise ValueError("need AV >= 0, 0 <= EF <= 1, ARO >= 0")
+    sle = asset_value * exposure_factor
+    return sle, sle * aro
+
+
+def control_value(ale_before: float, ale_after: float, annual_cost: float) -> float:
+    """Annual net benefit of a control (positive = financially justified)."""
+    return ale_before - ale_after - annual_cost
+
+
+def risk_rating(likelihood: int, impact: int) -> tuple[int, str]:
+    """5x5 qualitative matrix: score = L x I; bands Low 1-4, Medium 5-9, High 10-16, Critical 20-25."""
+    if likelihood not in range(1, 6) or impact not in range(1, 6):
+        raise ValueError("likelihood and impact must be 1..5")
+    score = likelihood * impact
+    band = "Low" if score <= 4 else "Medium" if score <= 9 else "High" if score <= 16 else "Critical"
+    return score, band
+
+
+# ---------------------------------------------------------------- CS-17 evidence handling (teaching model)
+
+
+def _entry_hash(entry: dict) -> str:
+    body = {k: v for k, v in entry.items() if k != "entry_hash"}
+    return hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
+
+
+def custody_append(log: list[dict], action: str, item: str, sha256: str, person: str, when: str) -> dict:
+    """Append a hash-chained chain-of-custody entry (tamper-evident, not tamper-proof)."""
+    entry = {"seq": len(log), "when": when, "person": person, "action": action, "item": item,
+             "sha256": sha256, "prev": log[-1]["entry_hash"] if log else "0" * 64}
+    entry["entry_hash"] = _entry_hash(entry)
+    log.append(entry)
+    return entry
+
+
+def custody_problems(log: list[dict]) -> list[str]:
+    """Check the chain links, entry hashes, and that the evidence hash never changes for an item."""
+    problems, first_hash = [], {}
+    for i, e in enumerate(log):
+        if e["seq"] != i:
+            problems.append(f"entry {i}: sequence number {e['seq']}")
+        if e["prev"] != (log[i - 1]["entry_hash"] if i else "0" * 64):
+            problems.append(f"entry {i}: broken link to previous entry")
+        if e["entry_hash"] != _entry_hash(e):
+            problems.append(f"entry {i}: entry altered after recording")
+        if first_hash.setdefault(e["item"], e["sha256"]) != e["sha256"]:
+            problems.append(f"entry {i}: evidence hash changed for {e['item']}")
+    return problems
+
+
+def acquire_copy(src: str, dst: str) -> tuple[str, str]:
+    """Copy a file, hash source and copy, make the copy read-only. Returns (source_hash, copy_hash)."""
+    h_src = sha256_file(src)
+    shutil.copy2(src, dst)
+    os.chmod(dst, 0o444)
+    return h_src, sha256_file(dst)

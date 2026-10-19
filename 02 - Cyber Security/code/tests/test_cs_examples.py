@@ -372,3 +372,73 @@ def test_success_after_failures():
     hits = success_after_failures(_events())
     assert [(u, ip) for u, ip, _ in hits] == [("juma", "203.0.113.50")]
     assert hits[0][2].isoformat() == "2026-03-02T08:14:36+00:00"
+
+
+# --- CS-16 risk calculations ---
+from cs_examples import ale, control_value, risk_rating  # noqa: E402
+
+
+def test_ale_examples():
+    assert ale(40_000_000, 0.25, 0.5) == (10_000_000, 5_000_000)
+    assert ale(40_000_000, 0.25, 0.1) == (10_000_000, 1_000_000)
+    assert ale(2_500_000, 1.0, 3) == (2_500_000, 7_500_000)
+    with pytest.raises(ValueError):
+        ale(100, 1.5, 1)
+
+
+def test_control_value():
+    assert control_value(5_000_000, 1_000_000, 1_500_000) == 2_500_000
+    assert control_value(5_000_000, 1_000_000, 6_000_000) == -2_000_000
+
+
+@pytest.mark.parametrize("l, i, expected", [(1, 1, (1, "Low")), (2, 2, (4, "Low")), (1, 5, (5, "Medium")),
+                                             (3, 3, (9, "Medium")), (2, 5, (10, "High")), (4, 4, (16, "High")),
+                                             (4, 5, (20, "Critical")), (5, 5, (25, "Critical"))])
+def test_risk_rating(l, i, expected):
+    assert risk_rating(l, i) == expected
+
+
+def test_cs16_sensitivity_and_practice_values():
+    after = ale(40_000_000, 0.25, 0.1)[1]
+    values = [control_value(ale(40_000_000, 0.25, a)[1], after, 1_500_000) for a in (0.2, 0.25, 0.5, 1.0)]
+    assert values == [-500_000, 0, 2_500_000, 7_500_000]
+    assert ale(12_000_000, 0.4, 0.25) == (4_800_000, 1_200_000)
+    assert control_value(5_000_000, 0, 6_000_000) < 0     # package B never breaks even
+
+
+# --- CS-17 chain of custody ---
+from cs_examples import acquire_copy, custody_append, custody_problems  # noqa: E402
+
+
+def _custody_log():
+    log = []
+    h = hashlib.sha256(b"exported-log-bytes").hexdigest()
+    custody_append(log, "acquired", "EV-001 auth.log export", h, "Neema (ICT)", "2026-03-02T10:05Z")
+    custody_append(log, "transferred", "EV-001 auth.log export", h, "Baraka (security officer)", "2026-03-02T10:40Z")
+    custody_append(log, "examined", "EV-001 auth.log export", h, "Baraka (security officer)", "2026-03-02T13:15Z")
+    return log
+
+
+def test_custody_chain_ok():
+    assert custody_problems(_custody_log()) == []
+
+
+def test_custody_detects_tampering():
+    log = _custody_log()
+    log[1]["person"] = "Someone else"
+    assert custody_problems(log) == ["entry 1: entry altered after recording"]
+    log = _custody_log()
+    custody_append(log, "examined", "EV-001 auth.log export", "f" * 64, "X", "2026-03-03T09:00Z")
+    assert custody_problems(log) == ["entry 3: evidence hash changed for EV-001 auth.log export"]
+    log = _custody_log()
+    del log[1]
+    assert "entry 1: broken link to previous entry" in custody_problems(log)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
+def test_acquire_copy(tmp_path):
+    src = tmp_path / "evidence.txt"
+    src.write_bytes(b"line 1\nline 2\n")
+    h1, h2 = acquire_copy(str(src), str(tmp_path / "copy.txt"))
+    assert h1 == h2 == hashlib.sha256(b"line 1\nline 2\n").hexdigest()
+    assert oct(os.stat(tmp_path / "copy.txt").st_mode & 0o777) == "0o444"
