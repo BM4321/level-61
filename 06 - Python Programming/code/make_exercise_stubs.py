@@ -26,6 +26,16 @@ class Stubber(ast.NodeTransformer):
 
     visit_AsyncFunctionDef = visit_FunctionDef
 
+    def visit_ClassDef(self, node: ast.ClassDef) -> ast.ClassDef:
+        # Exception classes (and classes marked "# keep" via a KEEP docstring tag) are
+        # given to the student complete; other classes get their methods stubbed.
+        bases = [ast.unparse(b) for b in node.bases]
+        doc = ast.get_docstring(node) or ""
+        if any(b.endswith(("Error", "Exception")) for b in bases) or "[given]" in doc:
+            return node
+        self.generic_visit(node)
+        return node
+
 
 def main() -> None:
     lesson = sys.argv[1]
