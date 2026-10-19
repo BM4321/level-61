@@ -1,0 +1,17 @@
+# Obsidian per-device state
+.obsidian/workspace*.json
+.obsidian/cache
+.trash/
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+# Local databases / generated data from running projects
+*.db
+*.sqlite3
+!**/fixtures/*.db
+# OS
+.DS_Store
+Thumbs.db
