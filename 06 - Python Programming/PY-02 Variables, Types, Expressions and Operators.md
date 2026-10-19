@@ -4,6 +4,7 @@ aliases:
   - Python variables
   - Python operators
   - Type conversion
+  - Variables and Data Types
 module: "Python Programming"
 module_code: "CST06102"
 topic_id: "PY-02"

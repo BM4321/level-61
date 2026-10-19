@@ -369,7 +369,7 @@ Close this note. On paper, draw the pipeline from source to output, mark where e
 ## 20. Links
 - Next: [[PY-02 Variables, Types, Expressions and Operators]]
 - Related: [[SD-13 Implementation, Code Organization and Version Control]] (Git, `.gitignore`), [[PY-13 Modules, Packages, Imports and Virtual Environments]] (deeper import mechanics)
-- Practice code: `code/examples/py01_pipeline.py`
+- Practice code: `code/examples/py01_pipeline.py` (see [[Python Code Bank]])
 
 ## 21. Sources and further reading
 - Python Software Foundation, *The Python Tutorial*, §2 "Using the Python Interpreter": https://docs.python.org/3/tutorial/interpreter.html (accessed 2026-10-19)
