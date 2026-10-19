@@ -134,3 +134,112 @@ def test_dm07():
     assert len({(2 * x) % 26 for x in range(26)}) == 13
     assert len({(x + 3) % 26 for x in range(26)}) == 26
     assert sum(map(ord, "ab")) % 16 == sum(map(ord, "ba")) % 16
+
+
+# ------------------------------------------------------------------ DM-08
+def test_dm08():
+    from fractions import Fraction as Fr
+    assert sum(2 * i + 1 for i in range(1, 6)) == 35
+    assert sum(3 * 2 ** k for k in range(5)) == 93
+    assert sum(range(10, 21)) == 165
+    assert sum(Fr(1, i * (i + 1)) for i in range(1, 5)) == Fr(4, 5)
+    assert sum(range(1, 101)) == 5050 and sum(i * i for i in range(1, 11)) == 385
+    assert sum(range(1, 98, 3)) == 1617
+    for n in range(1, 30):
+        assert sum(6 * i * i - 2 * i for i in range(1, n + 1)) == 2 * n * n * (n + 1)
+        assert sum(2 * i + 1 for i in range(1, n + 1)) == n * n + 2 * n
+        assert sum(1 for i in range(1, n + 1) for j in range(i, n + 1)) == n * (n + 1) // 2
+        triple = sum(1 for i in range(n) for j in range(i) for k in range(j))
+        assert triple == math.comb(n, 3)
+        assert sum(i + j for i in range(1, n + 1) for j in range(1, n + 1)) == n * n * (n + 1)
+    total = 50000 * sum(1.01 ** j for j in range(1, 13))
+    assert round(total) == 640466
+    waits = lambda k, cap=None: sum(min(0.5 * 2 ** i, cap) if cap else 0.5 * 2 ** i for i in range(k))  # noqa: E731
+    assert waits(10) == 511.5 and waits(11) == 1023.5
+    assert all(waits(k, 30) == 31.5 + 30 * (k - 6) for k in range(6, 20))
+
+
+# ------------------------------------------------------------------ DM-09
+def test_dm09():
+    for n in range(0, 60):
+        assert sum(2 ** i for i in range(n + 1)) == 2 ** (n + 1) - 1
+        assert (n ** 3 + 2 * n) % 3 == 0 and (n ** 3 - n) % 6 == 0
+    assert [n for n in range(0, 12) if not 2 ** n > n * n] == [2, 3, 4]
+    assert all(2 ** n > n * n for n in range(5, 200))
+    assert all(math.factorial(n) > 2 ** n for n in range(4, 100)) and not math.factorial(3) > 8
+    reachable = lambda n: any(4 * a + 5 * b == n for a in range(n // 4 + 1) for b in range(n // 5 + 1))  # noqa: E731
+    assert all(reachable(n) for n in range(12, 300)) and not reachable(11)
+    fib = iterate_recurrence([1, 1], [0, 1], 60)
+    assert all(fib[n] < 2 ** n for n in range(61))
+    assert all(sum(fib[: n + 1]) == fib[n + 2] - 1 for n in range(58))
+
+
+# ------------------------------------------------------------------ DM-10
+def _closure(rel):
+    rel = set(rel)
+    while True:
+        new = {(a, d) for a, b in rel for c, d in rel if b == c} - rel
+        if not new:
+            return rel
+        rel |= new
+
+
+def test_dm10():
+    A = [1, 2, 3]
+    R = {(1, 1), (2, 2), (3, 3), (1, 2), (2, 1), (2, 3)}
+    assert is_reflexive(R, A) and not is_symmetric(R) and not is_antisymmetric(R) and not is_transitive(R)
+    D = [1, 2, 3, 4]
+    lt = {(a, b) for a in D for b in D if a < b}
+    assert not is_reflexive(lt, D) and is_antisymmetric(lt) and is_transitive(lt) and not is_symmetric(lt)
+    par = {(a, b) for a in D for b in D if (a + b) % 2 == 0}
+    assert is_reflexive(par, D) and is_symmetric(par) and is_transitive(par)
+    assert sorted(map(sorted, equivalence_classes(range(11), lambda x, y: x % 3 == y % 3))) == \
+        [[0, 3, 6, 9], [1, 4, 7, 10], [2, 5, 8]]
+    close = {(a, b) for a in range(-3, 4) for b in range(-3, 4) if abs(a - b) <= 1}
+    assert not is_transitive(close)
+    pos = range(1, 25)
+    div = {(a, b) for a in pos for b in pos if b % a == 0}
+    assert is_reflexive(div, pos) and is_antisymmetric(div) and is_transitive(div)
+    zdiv = {(a, b) for a in range(-4, 5) for b in range(-4, 5) if a != 0 and b % a == 0}
+    assert not is_antisymmetric(zdiv)
+    clo = _closure({(1, 2), (2, 3), (3, 4), (4, 2)})
+    assert len(clo) == 12 and {(2, 2), (3, 3), (4, 4)} <= clo and (1, 1) not in clo
+    n = 3
+    reflexive_count = sum(1 for mask in range(2 ** (n * n))
+                          if all(mask >> (i * n + i) & 1 for i in range(n)))
+    assert reflexive_count == 64
+
+
+# ------------------------------------------------------------------ DM-11
+def _room_allocations(students, k):
+    if k == 0:
+        yield []
+        return
+    for trio in itertools.combinations(students, 3):
+        rest = [s for s in students if s not in trio]
+        for r in _room_allocations(rest, k - 1):
+            yield [trio] + r
+
+
+def test_dm11():
+    assert 26 ** 3 * 10 ** 5 == 1_757_600_000
+    assert sum(1 for b in itertools.product("01", repeat=8) if b[0] == "1" or b[-2:] == ("0", "0")) == 160
+    assert (perm(10, 3), comb(10, 3), comb(9, 2), comb(10, 3) - comb(6, 3)) == (720, 120, 36, 100)
+    assert multiset_perm([1, 4, 4, 2]) == 34650
+    banana = {p for p in itertools.permutations("BANANA")}
+    assert len(banana) == 60 and sum(1 for p in banana if "NN" not in "".join(p)) == 40
+    assert math.factorial(5) == 120 and 2 * math.factorial(4) == 48
+    assert comb(12, 5) - comb(7, 5) - 5 * comb(7, 4) == 596
+    assert multiset_perm([3, 2, 1, 1]) == 420 and multiset_perm([2, 2, 1, 1]) == 180
+    assert combinations_with_repetition(4, 10) == 286 and combinations_with_repetition(4, 6) == 84
+    assert 256 - 1 - 8 - 28 == 219
+    total = valid = together = 0
+    cs = set(range(6))
+    for alloc in _room_allocations(list(range(12)), 4):
+        total += 1
+        valid += all(0 < len(set(t) & cs) < 3 for t in alloc)
+        together += any(0 in t and 1 in t for t in alloc)
+    assert (total, valid, together) == (369_600, 194_400, 67_200)
+    assert 6 * 180 * 180 == 194_400
+    assert combinations_with_repetition(3, 5) == 21 and combinations_with_repetition(3, 4) == 15
+    assert multiset_perm([2, 2, 1]) == 30

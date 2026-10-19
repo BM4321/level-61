@@ -66,6 +66,14 @@ def split_frontmatter(text: str) -> tuple[dict[str, str] | None, str]:
     return fields, text[end + 4:]
 
 
+QUOTE_PREFIX = re.compile(r"^(?:>\s?)+", re.M)
+
+
+def unquote(text: str) -> str:
+    """Remove callout/blockquote markers so fences inside callouts are found too."""
+    return QUOTE_PREFIX.sub("", text)
+
+
 def strip_code(text: str) -> str:
     text = FENCE.sub("", text)
     return INLINE_CODE.sub("", text)
@@ -113,12 +121,12 @@ def main() -> int:
         if words < MIN_WORDS and not in_templates and fm.get("type", "").strip('"') != "template":
             warnings.append(f"SHORT NOTE ({words} words): {rel}")
 
-        prose = strip_code(body)
+        prose = strip_code(unquote(body))
         for m in PLACEHOLDER.finditer(prose):
             warnings.append(f"PLACEHOLDER '{m.group(0)}': {rel}")
 
         is_template = "Templates" in rel.parts and rel.parts[0].startswith("99")
-        for m in WIKILINK.finditer(strip_code(text)):
+        for m in WIKILINK.finditer(strip_code(unquote(text))):
             if is_template:
                 continue  # templates contain deliberate placeholder links
             link_count += 1
@@ -131,7 +139,7 @@ def main() -> int:
             elif len(hits) > 1:
                 errors.append(f"AMBIGUOUS LINK [[{target}]] in {rel}")
 
-        for fm_ in FENCE.finditer(body):
+        for fm_ in FENCE.finditer(unquote(body)):
             lang, code = fm_.group(1).lower(), fm_.group(2)
             first = code.lstrip().splitlines()[0] if code.strip() else ""
             if lang in ("python", "py"):
