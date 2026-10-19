@@ -1,3 +1,5 @@
+import hashlib
+
 import pytest
 
 from cs_examples import Forbidden, authorize, hotp, totp, verify_totp
@@ -71,3 +73,128 @@ def test_cs07_diffie_hellman():
     assert (A, B) == (8, 19) and pow(B, 6, p) == pow(A, 15, p) == 2
     A, B = pow(g, 4, p), pow(g, 3, p)
     assert (A, B) == (4, 10) and pow(B, 4, p) == pow(A, 3, p) == 18
+
+
+# --- CS-08 password storage (small scrypt cost so the tests stay fast) ---
+from cs_examples import hash_password, needs_rehash, password_problems, verify_password  # noqa: E402
+
+FAST = {"n": 2 ** 10, "r": 8, "p": 1}
+
+
+def test_hash_and_verify_roundtrip():
+    stored = hash_password("correct horse battery staple", **FAST)
+    assert stored.startswith("scrypt$1024$8$1$")
+    assert verify_password("correct horse battery staple", stored)
+    assert not verify_password("Correct horse battery staple", stored)
+
+
+def test_salt_makes_equal_passwords_differ():
+    assert hash_password("same", **FAST) != hash_password("same", **FAST)
+    fixed = bytes(16)
+    assert hash_password("same", salt=fixed, **FAST) == hash_password("same", salt=fixed, **FAST)
+
+
+def test_malformed_or_foreign_hash_rejected():
+    assert not verify_password("x", "not-a-hash")
+    assert not verify_password("x", "md5$1$1$1$AA==$AA==")
+
+
+def test_needs_rehash():
+    weak = hash_password("pw", **FAST)
+    assert needs_rehash(weak)
+    assert not needs_rehash(weak, **FAST)
+    assert needs_rehash("legacy-sha1-hex")
+
+
+def test_default_parameters_work():
+    stored = hash_password("pw")
+    assert verify_password("pw", stored) and not needs_rehash(stored)
+
+
+def test_password_problems():
+    block = {"password123456789", "qwertyuiopasdfgh"}
+    assert password_problems("Tr0ub4dor&3", block) == ["shorter than 15 characters"]
+    assert password_problems("Password123456789", block) == ["appears in the blocklist of common or breached passwords"]
+    assert password_problems("ndizi mbili chai moto asubuhi", block) == []
+    assert password_problems("a" * 65, set()) == ["longer than 64 characters"]
+
+
+def test_pbkdf2_and_fast_hash_values_quoted_in_cs08():
+    assert hashlib.sha256(b"password123").hexdigest().startswith("ef92b778bafe771e")
+    assert hashlib.md5(b"password123").hexdigest() == "482c811da5d5b4bc6d497ffa98491e38"
+    assert hashlib.pbkdf2_hmac("sha256", b"password", b"salt", 4096).hex().startswith("c5e478d59288c841")
+
+
+# --- CS-09 packet filter model ---
+from cs_examples import match_rule, shadowed_rules  # noqa: E402
+
+HOSTEL_RULES = [
+    ("allow", "any", "10.0.1.10/32", "tcp", 443),        # 0 public HTTPS to web server
+    ("allow", "10.0.1.10/32", "10.0.2.20/32", "tcp", 5432),  # 1 web -> database only
+    ("allow", "10.0.9.0/24", "10.0.0.0/16", "tcp", 22),   # 2 admin VLAN SSH
+    ("deny", "any", "any", "any", None),                  # 3 explicit deny all
+]
+
+
+@pytest.mark.parametrize("src, dst, proto, port, expected", [
+    ("41.59.1.2", "10.0.1.10", "tcp", 443, ("allow", 0)),
+    ("41.59.1.2", "10.0.2.20", "tcp", 5432, ("deny", 3)),
+    ("10.0.1.10", "10.0.2.20", "tcp", 5432, ("allow", 1)),
+    ("10.0.9.5", "10.0.2.20", "tcp", 22, ("allow", 2)),
+    ("10.0.3.7", "10.0.2.20", "tcp", 22, ("deny", 3)),
+    ("41.59.1.2", "10.0.1.10", "udp", 443, ("deny", 3)),
+])
+def test_first_match(src, dst, proto, port, expected):
+    assert match_rule(HOSTEL_RULES, src, dst, proto, port) == expected
+
+
+def test_default_deny_without_explicit_rule():
+    assert match_rule(HOSTEL_RULES[:1], "41.59.1.2", "10.0.1.11", "tcp", 443) == ("deny", None)
+
+
+def test_shadowed_rules():
+    rules = [("allow", "10.0.0.0/16", "any", "tcp", None),
+             ("deny", "10.0.5.0/24", "any", "tcp", 23),   # shadowed: rule 0 already allows it
+             ("deny", "any", "any", "any", None),
+             ("allow", "any", "any", "tcp", 443)]          # shadowed by the deny-all
+    assert shadowed_rules(rules) == [1, 3]
+    assert shadowed_rules(HOSTEL_RULES) == []
+
+
+# --- CS-10 permission audit ---
+import os  # noqa: E402
+import sys  # noqa: E402
+
+from cs_examples import audit_tree, permission_findings, symbolic  # noqa: E402
+
+
+@pytest.mark.parametrize("mode, text", [(0o644, "rw-r--r--"), (0o600, "rw-------"), (0o755, "rwxr-xr-x"),
+                                        (0o4755, "rwsr-xr-x"), (0o777, "rwxrwxrwx"), (0o1777, "rwxrwxrwt"),
+                                        (0o640, "rw-r-----")])
+def test_symbolic(mode, text):
+    assert symbolic(mode) == text
+
+
+def test_permission_findings():
+    assert permission_findings("a", 0o644) == []
+    assert permission_findings("a", 0o666) == ["a: world-writable"]
+    assert permission_findings(".env", 0o640, secret=True) == [".env: secret readable or writable by group/others (expected 600 or stricter)"]
+    assert permission_findings(".env", 0o600, secret=True) == []
+    assert permission_findings("bin", 0o4755) == ["bin: setuid bit set (review whether it is needed)"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
+def test_audit_tree(tmp_path):
+    (tmp_path / "app.py").write_text("print('hi')\n")
+    (tmp_path / ".env").write_text("DEMO_ONLY=1\n")
+    (tmp_path / "upload").mkdir()
+    os.chmod(tmp_path / "app.py", 0o644)
+    os.chmod(tmp_path / ".env", 0o644)
+    os.chmod(tmp_path / "upload", 0o777)
+    assert audit_tree(str(tmp_path)) == [
+        ".env: secret readable or writable by group/others (expected 600 or stricter)",
+        "upload: world-writable",
+    ]
+    os.chmod(tmp_path / ".env", 0o600)
+    os.chmod(tmp_path / "upload", 0o750)
+    assert audit_tree(str(tmp_path)) == []

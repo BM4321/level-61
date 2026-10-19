@@ -20,7 +20,7 @@ A structured, interlinked learning system for six Computer Science diploma modul
 3. Open **[[00 Dashboard]]** (in `00 - START HERE/`). It always tells you the next action.
 4. Recommended core settings (Settings → Files & Links):
    - *New link format*: **Shortest path when possible** (all links in this vault use unique note names).
-   - *Use [[Wikilinks]]*: **on**.
+   - *Use `[[Wikilinks]]`*: **on**.
 5. Optional community plugins (the vault works fully without them):
    - **Dataview**: powers the live tables in [[Progress Tracker]]; static tables are provided as a fallback.
    - **Spaced Repetition**: reads the `question::answer` flashcards found in every lesson.
