@@ -39,7 +39,7 @@ NO_PARSE_MARKERS = ("# syntax-error-demo", "# not-runnable", "# python2")
 WIKILINK = re.compile(r"!?\[\[([^\]\|#]+)(?:#[^\]\|]*)?(?:\|[^\]]*)?\]\]")
 FENCE = re.compile(r"^```([\w+-]*)\s*\n(.*?)^```\s*$", re.S | re.M)
 INLINE_CODE = re.compile(r"`[^`\n]*`")
-PLACEHOLDER = re.compile(r"\b(TODO|TBD|FIXME|lorem ipsum)\b", re.I)
+PLACEHOLDER = re.compile(r"(?<!\[!)\b(TODO|TBD|FIXME|lorem ipsum)\b", re.I)  # ignores [!todo] callouts
 
 
 def md_files() -> list[Path]:
@@ -109,7 +109,8 @@ def main() -> int:
             topic_ids[tid].append(p)
 
         words = len(re.findall(r"\w+", strip_code(body)))
-        if words < MIN_WORDS and fm.get("type", "").strip('"') not in ("template",):
+        in_templates = "Templates" in rel.parts
+        if words < MIN_WORDS and not in_templates and fm.get("type", "").strip('"') != "template":
             warnings.append(f"SHORT NOTE ({words} words): {rel}")
 
         prose = strip_code(body)
