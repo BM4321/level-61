@@ -1,0 +1,20 @@
+2026-03-02T08:00:01Z host=web01 sshd[1201]: Accepted publickey for admin_neema from 10.0.9.15 port 50122
+2026-03-02T08:14:22Z host=web01 sshd[1240]: Failed password for invalid user test from 203.0.113.50 port 40110
+2026-03-02T08:14:24Z host=web01 sshd[1240]: Failed password for invalid user oracle from 203.0.113.50 port 40112
+2026-03-02T08:14:25Z host=web01 sshd[1241]: Failed password for root from 203.0.113.50 port 40118
+2026-03-02T08:14:27Z host=web01 sshd[1241]: Failed password for root from 203.0.113.50 port 40120
+2026-03-02T08:14:29Z host=web01 sshd[1242]: Failed password for juma from 203.0.113.50 port 40124
+2026-03-02T08:14:31Z host=web01 sshd[1242]: Failed password for juma from 203.0.113.50 port 40126
+2026-03-02T08:14:33Z host=web01 sshd[1243]: Failed password for juma from 203.0.113.50 port 40130
+2026-03-02T08:14:36Z host=web01 sshd[1243]: Accepted password for juma from 203.0.113.50 port 40134
+2026-03-02T08:15:02Z host=web01 sudo: juma : TTY=pts/1 ; PWD=/home/juma ; USER=root ; COMMAND=/usr/bin/cat /etc/shadow
+2026-03-02T09:30:10Z host=web01 sshd[1300]: Failed password for amina from 198.51.100.7 port 51000
+2026-03-02T09:30:40Z host=web01 sshd[1301]: Accepted password for amina from 198.51.100.7 port 51004
+2026-03-02T11:02:00Z host=web01 sshd[1350]: Failed password for mrs_k from 198.51.100.23 port 52000
+2026-03-02T11:20:00Z host=web01 sshd[1351]: Failed password for mrs_k from 198.51.100.23 port 52010
+2026-03-02T11:40:00Z host=web01 sshd[1352]: Failed password for mrs_k from 198.51.100.23 port 52020
+2026-03-02T23:58:12Z host=web01 sshd[1400]: Failed password for invalid user admin from 192.0.2.99 port 60001
+2026-03-02T23:58:13Z host=web01 sshd[1400]: Failed password for invalid user guest from 192.0.2.99 port 60002
+2026-03-02T23:58:13Z host=web01 sshd[1400]: Failed password for invalid user pi from 192.0.2.99 port 60003
+2026-03-02T23:58:14Z host=web01 sshd[1400]: Failed password for invalid user ubuntu from 192.0.2.99 port 60004
+2026-03-02T23:58:15Z host=web01 sshd[1400]: Failed password for invalid user user from 192.0.2.99 port 60005

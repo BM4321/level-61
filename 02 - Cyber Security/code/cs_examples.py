@@ -533,3 +533,35 @@ def cvss31_base(vector: str) -> tuple[float, str]:
     rating = ("None" if score == 0 else "Low" if score < 4 else "Medium" if score < 7
               else "High" if score < 9 else "Critical")
     return score, rating
+
+
+# ---------------------------------------------------------------- CS-19 privacy and cloud configuration helpers
+
+
+def pseudonymise(identifier: str, key: bytes) -> str:
+    """Keyed pseudonym (HMAC-SHA256, truncated). Re-identifiable by whoever holds the key: still personal data."""
+    return hmac.new(key, identifier.encode("utf-8"), hashlib.sha256).hexdigest()[:16]
+
+
+def k_anonymity(rows: list[dict], quasi_identifiers: list[str]) -> int:
+    """Smallest group size when rows are grouped by their quasi-identifier values (higher = harder to single out)."""
+    if not rows:
+        return 0
+    groups = Counter(tuple(r[q] for q in quasi_identifiers) for r in rows)
+    return min(groups.values())
+
+
+def storage_policy_findings(bucket: dict) -> list[str]:
+    """Review a simplified object-storage configuration (cloud-provider-neutral teaching model)."""
+    f = []
+    if bucket.get("public_read") or "*" in bucket.get("readers", []):
+        f.append("objects readable by anyone on the Internet")
+    if not bucket.get("encryption_at_rest", False):
+        f.append("encryption at rest disabled")
+    if not bucket.get("versioning", False):
+        f.append("versioning disabled (no recovery from overwrite or ransomware)")
+    if not bucket.get("access_logging", False):
+        f.append("access logging disabled")
+    if bucket.get("contains_personal_data") and bucket.get("region") not in bucket.get("approved_regions", []):
+        f.append("personal data stored outside approved regions")
+    return f

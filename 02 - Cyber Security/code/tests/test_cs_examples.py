@@ -467,3 +467,43 @@ def test_cvss_rejects_bad_vectors():
         cvss31_base("CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H")
     with pytest.raises(ValueError):
         cvss31_base("CVSS:3.1/AV:N/AC:L")
+
+
+# --- CS-19 privacy and cloud helpers ---
+from cs_examples import k_anonymity, pseudonymise, storage_policy_findings  # noqa: E402
+
+DEMO_KEY = b"demo-key-not-a-real-secret"
+
+
+def test_pseudonymise():
+    a = pseudonymise("NIT/BIT/2023/0117", DEMO_KEY)
+    assert a == pseudonymise("NIT/BIT/2023/0117", DEMO_KEY) and len(a) == 16
+    assert a != pseudonymise("NIT/BIT/2023/0118", DEMO_KEY)
+    assert a != pseudonymise("NIT/BIT/2023/0117", b"other-key")
+
+
+ROWS = [
+    {"age": "20-24", "block": "A", "gender": "F", "issue": "plumbing"},
+    {"age": "20-24", "block": "A", "gender": "F", "issue": "electrical"},
+    {"age": "20-24", "block": "A", "gender": "M", "issue": "internet"},
+    {"age": "20-24", "block": "A", "gender": "M", "issue": "furniture"},
+    {"age": "25-29", "block": "B", "gender": "F", "issue": "plumbing"},
+]
+
+
+def test_k_anonymity():
+    assert k_anonymity(ROWS, ["age", "block", "gender"]) == 1      # the single 25-29/B/F resident
+    assert k_anonymity(ROWS[:4], ["age", "block", "gender"]) == 2
+    assert k_anonymity(ROWS, ["age"]) == 1 and k_anonymity(ROWS[:4], ["age"]) == 4
+    assert k_anonymity([], ["age"]) == 0
+
+
+def test_storage_policy_findings():
+    bad = {"public_read": True, "contains_personal_data": True, "region": "us-east", "approved_regions": ["af-south"]}
+    assert storage_policy_findings(bad) == [
+        "objects readable by anyone on the Internet", "encryption at rest disabled",
+        "versioning disabled (no recovery from overwrite or ransomware)", "access logging disabled",
+        "personal data stored outside approved regions"]
+    good = {"public_read": False, "readers": ["hostel-app-role"], "encryption_at_rest": True, "versioning": True,
+            "access_logging": True, "contains_personal_data": True, "region": "af-south", "approved_regions": ["af-south"]}
+    assert storage_policy_findings(good) == []
