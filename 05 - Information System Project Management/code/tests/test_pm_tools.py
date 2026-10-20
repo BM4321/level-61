@@ -200,3 +200,42 @@ def test_case01_week10_evm_pm10():
     assert round(e.spi, 3) == 0.926 and round(e.cpi, 4) == 0.8966
     assert round(e.eac_cpi) == 60_230_769 and e.eac_atypical == 57_900_000 and round(e.eac_cpi_spi) == 62_030_564
     assert round(e.vac) == -6_230_769 and round(e.tcpi_bac, 4) == 1.2393 and round(e.tcpi_eac(60e6), 4) == 0.9058
+
+
+CASE01_RISKS = {"R1": (0.3, 4e6), "R2": (0.5, 3e6), "R3": (0.2, 6e6), "R4": (0.4, 2.5e6), "R5": (0.25, 4.4e6)}
+
+
+def test_risk_emv_and_decision_tree_pm11():
+    from pm_tools import decision_value, emv
+    values = emv(CASE01_RISKS)
+    assert values == {"R1": 1.2e6, "R2": 1.5e6, "R3": 1.2e6, "R4": 1.0e6, "R5": 1.1e6}
+    assert round(sum(values.values())) == 6_000_000          # = the contingency reserve in PM-09
+    tree = ("decision", {"build in-house": ("chance", [(0.6, 54e6), (0.4, 66e6)]),
+                         "buy package + customise": ("chance", [(0.7, 50e6), (0.3, 72e6)])})
+    assert decision_value(tree) == (56_600_000, ["buy package + customise"])
+    assert decision_value(("chance", [(0.6, 54e6), (0.4, 66e6)]))[0] == 58_800_000
+    assert round(0.05 * 6e6 + 0.5e6) == 800_000              # R3 mitigated: residual EMV + response cost < 1.2 M
+    with pytest.raises(ValueError):
+        decision_value(("chance", [(0.5, 1), (0.4, 2)]))
+
+
+def test_pm11_pilot_option():
+    from pm_tools import decision_value
+    tree = ("decision", {"pilot first": ("chance", [(0.7, 52e6), (0.3, 60.8e6)]),
+                         "build in-house": ("chance", [(0.6, 54e6), (0.4, 66e6)]),
+                         "buy package + customise": ("chance", [(0.7, 50e6), (0.3, 72e6)])})
+    value, choice = decision_value(tree)
+    assert round(value) == 54_640_000 and choice == ["pilot first"]
+
+
+def test_pm12_to_pm16_helpers():
+    from pm_tools import communication_channels, control_limits, fpif_final_price, fpif_pta, pareto, sprints_needed
+    assert [communication_channels(n) for n in (5, 6, 10, 12)] == [10, 15, 45, 66]
+    lcl, mean, ucl = control_limits([1.6, 1.8, 1.7, 1.9, 1.5, 1.8, 1.7, 2.0, 1.6, 1.8, 1.9, 1.7])
+    assert (round(lcl, 3), round(mean, 3), round(ucl, 3)) == (1.316, 1.75, 2.184)
+    rows = pareto({"validation errors": 42, "login problems": 18, "slow pages": 12, "wrong timetable": 9,
+                   "UI confusion": 6, "other": 3})
+    assert rows[:3] == [("validation errors", 42, 46.7), ("login problems", 18, 66.7), ("slow pages", 12, 80.0)]
+    assert fpif_pta(40e6, 4e6, 48e6, 0.8) == 45e6
+    assert [fpif_final_price(ac, 40e6, 4e6, 48e6, 0.8) for ac in (38e6, 42e6, 46e6)] == [42.4e6, 45.6e6, 48e6]
+    assert sprints_needed(120, [18, 22, 20, 24]) == (5, 6, 7)

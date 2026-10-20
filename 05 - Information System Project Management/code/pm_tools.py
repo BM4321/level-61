@@ -363,3 +363,70 @@ def cost_baseline(schedule: Schedule, activities: list[Activity], cost: dict[str
         running += x
         cumulative.append(running)
     return per, cumulative
+
+
+# ------------------------------------------------------------------ risk
+def emv(risks: dict[str, tuple[float, float]]) -> dict[str, float]:
+    """Expected monetary value per risk: probability x impact (impact negative for opportunities)."""
+    return {name: p * impact for name, (p, impact) in risks.items()}
+
+
+def decision_value(node):
+    """Evaluate a decision tree. node = ("decision", {option: node}) | ("chance", [(p, node), ...]) | number.
+    Decisions choose the minimum expected COST. Returns (value, chosen options path)."""
+    if isinstance(node, (int, float)):
+        return float(node), []
+    kind, body = node
+    if kind == "chance":
+        if abs(sum(p for p, _ in body) - 1) > 1e-9:
+            raise ValueError("chance probabilities must sum to 1")
+        return sum(p * decision_value(child)[0] for p, child in body), []
+    best = min(((decision_value(child), opt) for opt, child in body.items()), key=lambda x: x[0][0])
+    (value, path), opt = best
+    return value, [opt] + path
+
+
+# ------------------------------------------------------------------ communication, quality, procurement, agile
+def communication_channels(n: int) -> int:
+    """Potential communication channels among n people: n(n-1)/2."""
+    return n * (n - 1) // 2
+
+
+def control_limits(samples: list[float], sigma: float = 3.0) -> tuple[float, float, float]:
+    """(LCL, mean, UCL) using the sample standard deviation (an individuals-style simplification)."""
+    from statistics import mean, stdev
+
+    m, s = mean(samples), stdev(samples)
+    return m - sigma * s, m, m + sigma * s
+
+
+def pareto(counts: dict[str, int]) -> list[tuple[str, int, float]]:
+    """Categories sorted by count with cumulative percentage."""
+    total = sum(counts.values())
+    out, running = [], 0
+    for k, v in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
+        running += v
+        out.append((k, v, round(100 * running / total, 1)))
+    return out
+
+
+def fpif_pta(target_cost: float, target_fee: float, ceiling_price: float, buyer_share: float) -> float:
+    """Fixed-price-incentive-fee point of total assumption: TC + (CP - TP) / buyer share."""
+    target_price = target_cost + target_fee
+    return target_cost + (ceiling_price - target_price) / buyer_share
+
+
+def fpif_final_price(actual_cost: float, target_cost: float, target_fee: float, ceiling_price: float,
+                     buyer_share: float) -> float:
+    """Seller's fee adjusts by (1 - buyer_share) of the cost variance; total price capped at the ceiling."""
+    fee = target_fee + (1 - buyer_share) * (target_cost - actual_cost)
+    return min(actual_cost + fee, ceiling_price)
+
+
+def sprints_needed(remaining_points: float, recent_velocities: list[float]) -> tuple[int, int, int]:
+    """(optimistic, average, pessimistic) sprints using max, mean and min of recent velocities."""
+    from statistics import mean
+
+    return (math.ceil(remaining_points / max(recent_velocities)),
+            math.ceil(remaining_points / mean(recent_velocities)),
+            math.ceil(remaining_points / min(recent_velocities)))
