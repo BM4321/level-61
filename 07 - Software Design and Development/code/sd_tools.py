@@ -66,3 +66,46 @@ def cyclomatic_complexity(source: str) -> dict[str, int]:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     result[f"{node.name}.{item.name}"] = _complexity(item)
     return result
+
+
+def import_graph(package_dir: str, package: str) -> dict[str, set[str]]:
+    """Intra-package import graph: module -> set of sibling modules it imports (relative or absolute)."""
+    import os
+
+    modules = {f[:-3] for f in os.listdir(package_dir) if f.endswith(".py") and f != "__init__.py"}
+    graph: dict[str, set[str]] = {m: set() for m in modules}
+    for m in modules:
+        with open(os.path.join(package_dir, m + ".py"), encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                target = node.module or ""
+                if node.level == 1 or target.startswith(package + "."):
+                    name = target.split(".")[-1]
+                    if name in modules:
+                        graph[m].add(name)
+    return graph
+
+
+def instability(graph: dict[str, set[str]]) -> dict[str, tuple[int, int, float]]:
+    """Martin's metrics per module: (Ca afferent, Ce efferent, I = Ce / (Ca + Ce)); I=0 stable, I=1 unstable."""
+    result = {}
+    for m in graph:
+        ce = len(graph[m])
+        ca = sum(1 for other, deps in graph.items() if m in deps)
+        result[m] = (ca, ce, round(ce / (ca + ce), 2) if ca + ce else 0.0)
+    return result
+
+
+def has_cycle(graph: dict[str, set[str]]) -> bool:
+    state: dict[str, int] = {}
+
+    def visit(n: str) -> bool:
+        state[n] = 1
+        for d in graph.get(n, ()):
+            if state.get(d) == 1 or (state.get(d) is None and visit(d)):
+                return True
+        state[n] = 2
+        return False
+
+    return any(state.get(n) is None and visit(n) for n in graph)
