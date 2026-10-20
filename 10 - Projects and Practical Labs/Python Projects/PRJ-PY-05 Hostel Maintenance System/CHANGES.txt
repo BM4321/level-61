@@ -1,6 +1,13 @@
 Changes
 =======
 
+1.1.0
+-----
+Added
+- insights module: rooms with 3 or more reports in 30 days, a technician work
+  queue (most urgent, then oldest), and possible duplicate open requests.
+- `insights` CLI command for wardens (JSON).
+
 1.0.0
 -----
 Added

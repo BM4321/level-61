@@ -114,19 +114,47 @@ def test_xcase01_portal_plan():
     s = cpm(PORTAL)
     assert s.duration == 13 and s.critical == ["A", "B", "C", "E", "G", "H", "J"]
     assert (s.total_float["D"], s.total_float["F"], s.total_float["I"]) == (3, 1, 7)
-    portal_rule = lambda role, published, own, teaches: (  # noqa: E731
-        role == "exams_officer" or (role == "lecturer" and teaches) or (role == "student" and published and own))
+    from x_tools import approve_mark_change, can_view_result, results_digest
     rows = [(r, p, o, t) for r in ("student", "lecturer", "exams_officer") for p in (False, True)
             for o in (False, True) for t in (False, True)]
-    allowed = [row for row in rows if portal_rule(*row)]
+    allowed = [row for row in rows if can_view_result(*row)]
     assert len(rows) == 24 and len(allowed) == 8 + 4 + 2
+    spec = lambda role, published, own, teaches: (  # noqa: E731
+        role == "exams_officer" or (role == "lecturer" and teaches) or (role == "student" and published and own))
+    assert all(can_view_result(*r) == spec(*r) for r in rows)
+    assert not can_view_result("guest", True, True, True)
+    shortcut = lambda role, published, own, teaches: role == "student" and published and own or teaches  # noqa: E731
+    wrong = [r for r in rows if bool(shortcut(*r)) != can_view_result(*r)]
+    assert ("student", False, False, True) in wrong and ("exams_officer", False, False, False) in wrong
+    assert approve_mark_change("L01", "H01", "head_of_department")
+    assert not approve_mark_change("H01", "H01", "head_of_department")          # no self-approval
+    assert not approve_mark_change("L01", "L02", "lecturer")
+    marks = [("S1", "CST06102", 71.0), ("S2", "CST06102", 64.5), ("S3", "CST06102", 49.0)]
+    d = results_digest(marks)
+    assert d == results_digest(list(reversed(marks))) and len(d) == 64
+    assert results_digest([("S1", "CST06102", 71.0), ("S2", "CST06102", 64.5), ("S3", "CST06102", 50.0)]) != d
 
 
 def test_xcase02_inventory():
     ss = safety_stock(1.645, 12, 9)
     assert round(ss, 2) == 59.22
     assert math.ceil(reorder_point(40, 9, ss)) == 420
+    ss99 = safety_stock(2.326, 12, 9)                                         # discussion question 1
+    assert round(ss99, 1) == 83.7 and math.ceil(reorder_point(40, 9, ss99)) == 444
     assert round(eoq(40 * 360, 50_000, 600)) == 1549
+    from x_tools import reorder_alerts
+    stock = {("DAR", "CEM50"): 380, ("MWZ", "CEM50"): 900, ("ARU", "CEM50"): 420, ("DAR", "NAIL3"): 40,
+             ("ARU", "NAIL3"): 15, ("MWZ", "OLDPAINT"): 2}
+    rop = {"CEM50": 420, "NAIL3": 60, "OLDPAINT": 10}
+    alerts = reorder_alerts(stock, rop, open_orders={("ARU", "NAIL3")}, active={"CEM50", "NAIL3"})
+    assert alerts == [("ARU", "CEM50"), ("DAR", "CEM50"), ("DAR", "NAIL3")]
+    below = lambda sku: {w for (w, k), q in stock.items() if k == sku and q <= rop[sku]}  # noqa: E731
+    assert below("CEM50") | below("NAIL3") == {"DAR", "ARU"} and below("CEM50") & below("NAIL3") == {"DAR", "ARU"}
+    from pm_tools import EVM
+    e = EVM(56e6, 45.5e6, 37e6, 36.2e6)                                     # PM-CASE-02, end of week 12
+    assert (round(e.spi, 3), round(e.cpi, 3), round(e.eac_cpi)) == (0.813, 1.022, 54_789_189)
+    assert round(e.sv) == -8_500_000 and round(e.cv) == 800_000
+    assert cpm(CASE02).duration == 21
 
 
 CAPSTONE = [A("A", 2), A("B", 1, ("A",)), A("C", 1, ("B",)), A("D", 2, ("C",)), A("E", 2, ("D",)), A("F", 2, ("E",)),
@@ -172,5 +200,6 @@ def test_x03_security_requirements_trace_to_real_tests():
     assert gaps["tests_without_requirement"] == sorted(
         {"test_every_disallowed_transition_is_rejected", "test_optimistic_concurrency_between_two_connections",
          "test_password_policy", "test_register_rejects_weak_and_personal_passwords", "test_summary_numbers",
-         "test_cli_end_to_end", "test_layering_rules"})
-    assert len(names) == 19                     # 19 functions; parametrisation makes 42 collected tests
+         "test_cli_end_to_end", "test_layering_rules", "test_repeat_rooms_window_threshold_and_order",
+         "test_work_queue_urgent_then_oldest", "test_possible_duplicates"})
+    assert len(names) == 22                     # 22 functions; parametrisation makes 45 collected tests

@@ -209,7 +209,7 @@ redact("login user=amina password=Hunter2! token=abc123&x=1")
 The `\n` escaping stops an attacker injecting a fake extra log line ("log forging"). Regex-based redaction is a *safety net*. The primary control is **never logging secrets in the first place**.
 
 ## 10. Application
-The capstone [[X-CAPSTONE Hostel Maintenance System Full Lifecycle]] threat-models its prototype ([[LAB-CS-07 Threat Modeling a Sample Web Application]]), then applies this lesson: validated room codes and categories (allowlists), parameterised SQL in every repository, PBKDF2 password hashes for staff accounts, `secrets` tokens for password-reset links, and redacted audit logs.
+The capstone [[X-CAPSTONE Hostel Maintenance System Full Lifecycle]] threat-models its prototype ([[LAB-CS-07 Threat Modeling a Sample Web Application]]), then applies this lesson: validated room codes and categories (allowlists), parameterised SQL in every repository, scrypt password hashes for every account (memory-hard, from `hashlib`; see [[CS-08 Password Storage and Authentication Security]]), `secrets` tokens for password-reset links, and redacted audit logs.
 
 ## 11. Common mistakes
 | Mistake | Fix |

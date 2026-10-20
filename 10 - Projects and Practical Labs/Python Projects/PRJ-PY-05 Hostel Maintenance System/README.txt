@@ -1,4 +1,4 @@
-hostel-maintenance 1.0.0
+hostel-maintenance 1.1.0
 ========================
 
 Maintenance request tracking for student hostels. A teaching project for the
@@ -34,15 +34,16 @@ read one per line, the --as user's password first.
     hostel --as WARDEN01 move 1 closed
     hostel --as STU/21/0001 history 1
     hostel --as WARDEN01 report
+    hostel --as WARDEN01 insights       (repeat rooms, work queue, possible duplicates)
 
 Architecture (layers; arrows = "depends on")
 --------------------------------------------
     cli  ->  services  ->  repository (interface)  <-  SqliteRepository / InMemoryRepository
                |                                         
-               +-> models (domain rules, validation)     reports (pure functions)
+               +-> models (domain rules, validation)     reports, insights (pure functions)
                +-> security (scrypt hashing, policy, reset tokens)
 
 Testing
 -------
-    python -m pytest        (42 tests; each repository test runs on both implementations)
+    python -m pytest        (45 tests; each repository test runs on both implementations)
     python -m mypy src/hostel

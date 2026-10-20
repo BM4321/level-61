@@ -124,14 +124,14 @@ flowchart LR
 | SR7 | Single-use, expiring reset tokens | `AuthService.reset_password` | `test_password_reset` |
 | SR8 | MFA for staff accounts | (not implemented) | none |
 
-Running `trace_gaps` against the 19 test functions actually in the project (42 collected tests, because of parametrisation) gives:
+Running `trace_gaps` against the 22 test functions actually in the project (45 collected tests, because of parametrisation) gives:
 - **untested requirements:** `SR8`;
 - **unknown tests:** none;
-- **tests without a requirement:** 7, including `test_optimistic_concurrency_between_two_connections` and `test_password_policy`.
+- **tests without a requirement:** 10, including `test_optimistic_concurrency_between_two_connections`, `test_password_policy` and the three insights tests.
 
 ### Example 3 (challenging): interpreting the gaps
 - **SR8** is a real gap: the project note lists MFA under "what a real deployment needs". In a real system it must be implemented or formally accepted, with an owner. For a teaching project, the honest response is to document it as an accepted risk.
-- **The 7 unlinked tests** aren't bad tests: they verify *other* requirements (the lifecycle, concurrency NFR2, the password policy, reporting, the CLI, layering). The fix is to link them to their functional or non-functional requirement IDs, or, for the password policy, to add an SR ("passwords shall be at least 15 characters and not on a blocklist") that the matrix forgot. **The matrix found a missing requirement.**
+- **The 10 unlinked tests** aren't bad tests: they verify *other* requirements (the lifecycle, concurrency NFR2, the password policy, reporting and insights, the CLI, layering). The fix is to link them to their functional or non-functional requirement IDs, or, for the password policy, to add an SR ("passwords shall be at least 15 characters and not on a blocklist") that the matrix forgot. **The matrix found a missing requirement.**
 
 ## 10. Application
 For your FYP, or for [[X-CASE-01 Secure Exam Results Portal]], produce this matrix early, and keep it in your repository with a test that runs `trace_gaps`, so a requirement can't silently lose its test.
@@ -171,7 +171,7 @@ Use them together: threat modelling for the design, a checklist to catch omissio
 
 ## 15. Worked solutions
 > [!success]- Solutions
-> 1. S authentication, T integrity, R non-repudiation, I confidentiality, D availability, E authorisation. 2. Every interface (CLI, web, API) calls the services, so the checks can't be bypassed by adding a new interface. 3. "Error responses shall not reveal whether an account exists, stack traces, or SQL; they shall show a generic message and log the details server-side." 4. SR9 → `test_password_policy` (and `test_register_rejects_weak_and_personal_passwords`): untested stays `["SR8"]`; tests without a requirement drop from 7 to 5. 5. Tactic: a second factor (TOTP) for warden and technician roles. Component: `AuthService.authenticate` requires a valid code after the password for staff roles; enrolment stores a secret (encrypted at rest). Tests: a staff login fails without a code, and succeeds with a valid one at the injected time; a code outside the time window fails; residents are unaffected.
+> 1. S authentication, T integrity, R non-repudiation, I confidentiality, D availability, E authorisation. 2. Every interface (CLI, web, API) calls the services, so the checks can't be bypassed by adding a new interface. 3. "Error responses shall not reveal whether an account exists, stack traces, or SQL; they shall show a generic message and log the details server-side." 4. SR9 → `test_password_policy` (and `test_register_rejects_weak_and_personal_passwords`): untested stays `["SR8"]`; tests without a requirement drop from 10 to 8. 5. Tactic: a second factor (TOTP) for warden and technician roles. Component: `AuthService.authenticate` requires a valid code after the password for staff roles; enrolment stores a secret (encrypted at rest). Tests: a staff login fails without a code, and succeeds with a valid one at the injected time; a code outside the time window fails; residents are unaffected.
 
 ## 16. Self-test
 1. What's the chain from threat to test? 2. What does `trace_gaps` report? 3. Which requirement did the hostel matrix leave untested? 4. What did the unlinked tests reveal? 5. Where does the audit tactic live?

@@ -22,7 +22,7 @@ tags:
 # PRJ-PY-05 Hostel Maintenance System (advanced)
 
 > [!info] Project card
-> **When:** Weeks 13–15 (after PY-22 to PY-25) · **Effort:** 30–40 h · **Reference implementation:** `src/hostel/` (stdlib only) · **Tests:** `python -m pytest`, 42 passing at build time (the repository-dependent tests run against both the in-memory and the SQLite repository) · **Types:** `python -m mypy src/hostel` is clean · **Run:** `PYTHONPATH=src python -m hostel --help`, or `pip install -e .` and then `hostel --help` · **Docs:** `README.txt`, `CHANGES.txt`
+> **When:** Weeks 13–15 (after PY-22 to PY-25) · **Effort:** 30–40 h · **Reference implementation:** `src/hostel/` (stdlib only) · **Tests:** `python -m pytest`, 45 passing at build time (the repository-dependent tests run against both the in-memory and the SQLite repository) · **Types:** `python -m mypy src/hostel` is clean · **Run:** `PYTHONPATH=src python -m hostel --help`, or `pip install -e .` and then `hostel --help` · **Docs:** `README.txt`, `CHANGES.txt`
 > **Uses:** [[PY-22 SQL and Database Integration]] (transactions, parameterised SQL), [[PY-24 Secure Programming and Input Validation]] (validation, password storage), [[PY-25 Performance, Packaging and Project Organization]] (src layout, entry point, logging), [[PY-17 Inheritance, Composition and Polymorphism]] (an ABC, dependency injection), [[PY-20 Testing, Debugging and Test-Driven Development]] (fixtures, a fake clock, parametrised tests)
 > **Cross-module:** the domain is the running example of [[FYP 00 Dashboard]]; the state machine is [[SD-08 UML Sequence, Activity and State Diagrams]] §10; the password design follows [[CS-08 Password Storage and Authentication Security]] §10; the full lifecycle is [[X-CAPSTONE Hostel Maintenance System Full Lifecycle]].
 
@@ -43,6 +43,7 @@ tags:
 | FR7 | Users authenticate with a registration number and password; the first user must be a warden, and later users are registered by a warden |
 | FR8 | Password reset uses a single-use token that expires after 30 minutes |
 | FR9 | A warden's report shows counts by status, open requests by priority, the mean hours to resolve, and urgent requests open for more than 24 hours |
+| FR10 | A warden's insights show rooms with 3 or more reports in the last 30 days (most first), the technicians' work queue (most urgent, then oldest), and open requests that may be duplicates (same room and category) |
 
 ### Non-functional
 | ID | Requirement | How it's met |
@@ -53,7 +54,7 @@ tags:
 | NFR4 | No SQL injection | Every query is parameterised; a test stores a hostile description as data |
 | NFR5 | No log forging | Descriptions and notes are collapsed to a single line; passwords are never logged (tested with `caplog`) |
 | NFR6 | The business layer is testable without a database | Services depend on the `HostelRepository` interface; an `InMemoryRepository` implements it |
-| NFR7 | Layering is enforced | A test parses the imports and fails if `models`, `services` or `reports` import SQLite or the CLI |
+| NFR7 | Layering is enforced | A test parses the imports and fails if `models`, `services`, `reports` or `insights` import SQLite or the CLI |
 
 ## 2. Design
 
@@ -62,6 +63,8 @@ tags:
 flowchart TD
     CLI[cli.py: argparse, getpass, printing] --> SVC[services.py: AuthService, RequestService]
     CLI --> REP[reports.py: summary]
+    CLI --> INS[insights.py: repeat rooms, work queue, duplicates]
+    INS --> M
     SVC --> M[models.py: entities, ALLOWED, validation]
     SVC --> SEC[security.py: scrypt, policy, tokens]
     SVC --> IFACE[repository.py: HostelRepository ABC]
@@ -69,7 +72,7 @@ flowchart TD
     MEM[InMemoryRepository] -.implements.-> IFACE
     REP --> M
 ```
-*Text version: the CLI calls the services and the report function. The services use the domain models, the security helpers and the repository interface. Two classes implement that interface: SQLite and in-memory. The domain models depend on nothing else in the package except the errors module.*
+*Text version: the CLI calls the services, the report function and the insights functions. The services use the domain models, the security helpers and the repository interface. Two classes implement that interface: SQLite and in-memory. The domain models depend on nothing else in the package except the errors module.*
 
 ### 2.2 Request lifecycle (the `ALLOWED` table)
 ```mermaid
@@ -148,6 +151,7 @@ sequenceDiagram
 | M5 | Authentication | Policy, generic errors, backoff, rehash and reset tests pass |
 | M6 | CLI and packaging | The end-to-end CLI test passes; `pip install -e .` provides `hostel` |
 | M7 | Report and documentation | The summary test passes; README and changelog written |
+| M8 | Insights (version 1.1.0) | Repeat-room, work-queue and duplicate tests pass; `insights` command added |
 
 ## 4. Reference implementation: the rule-enforcing core
 The service checks the rules; the repository makes the write atomic and detects lost updates.
@@ -209,10 +213,11 @@ def login_delay(failures: int) -> int:
 print([login_delay(n) for n in range(10)])   # [0, 0, 0, 30, 60, 120, 240, 480, 900, 900]
 ```
 
-## 5. Tests (42, all passing at build time)
+## 5. Tests (45, all passing at build time)
 - **`test_requests.py`** (each test runs on both repositories): the full lifecycle and its audit trail; every disallowed transition from every status; permissions (role, assignee, own room); the reopen window (exactly 7 days is allowed, 7 days plus 1 second isn't) and ownership; priorities and visibility; input validation, including newline collapsing and a hostile SQL-like string stored as data. On SQLite only: the two-connection lost-update test, and the forced-rollback atomicity test.
 - **`test_auth.py`:** the password policy; registration rejecting weak or personal passwords; the hash format, salts and verification; generic error messages for wrong passwords and unknown users, with no password in the logs; the backoff schedule; throttling driven by the fake clock; rehash on login; password reset (unknown user, weak new password not consuming the token, single use, expiry).
-- **`test_reports_cli_architecture.py`:** the summary numbers (mean (5 + 26)/2 = 15.5 h; one overdue urgent request); an end-to-end CLI run against a temporary database; the layering rules.
+- **`test_reports_cli_architecture.py`:** the summary numbers (mean (5 + 26)/2 = 15.5 h; one overdue urgent request); an end-to-end CLI run against a temporary database, including `insights`; the layering rules.
+- **`test_insights.py`:** the 30-day window and the threshold for repeat rooms (B-204 with 4 reports, then A-101 with 3; a report 31 days old is excluded); the work queue order (urgent and oldest first; resolved requests excluded); duplicates among open requests only.
 
 ## 6. Sample output (actual run, with the commands from `README.txt`)
 ```text

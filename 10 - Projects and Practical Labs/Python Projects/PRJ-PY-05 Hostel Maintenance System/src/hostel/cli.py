@@ -16,6 +16,7 @@ from typing import TextIO
 from . import __version__
 from .errors import HostelError
 from .models import Priority, Role, Room, Status, User, validate_room_code
+from .insights import possible_duplicates, repeat_rooms, work_queue
 from .reports import summary
 from .repository import SqliteRepository
 from .security import PasswordHasher
@@ -48,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     r = sub.add_parser("history", help="a request's audit trail")
     r.add_argument("id", type=int)
     sub.add_parser("report", help="(warden) summary report as JSON")
+    sub.add_parser("insights", help="(warden) repeat rooms, work queue and possible duplicates as JSON")
     return p
 
 
@@ -113,6 +115,16 @@ def main(argv: list[str] | None = None, stdin: TextIO = sys.stdin, stdout: TextI
             if actor().role is not Role.WARDEN:
                 raise HostelError("only wardens see reports")
             out(json.dumps(summary(repo.list_requests(), utc_now()), indent=2))
+        elif args.command == "insights":
+            if actor().role is not Role.WARDEN:
+                raise HostelError("only wardens see insights")
+            all_requests = repo.list_requests()
+            out(json.dumps({
+                "repeat_rooms": repeat_rooms(all_requests, utc_now()),
+                "work_queue": [r.id for r in work_queue(all_requests)],
+                "possible_duplicates": {f"{room}/{cat}": ids
+                                        for (room, cat), ids in possible_duplicates(all_requests).items()},
+            }, indent=2))
         return 0
     except HostelError as exc:
         print(f"error: {exc}", file=sys.stderr)

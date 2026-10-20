@@ -59,6 +59,11 @@ def test_cli_end_to_end(tmp_path, capsys):
     code, report = run(db, ["--as", "WARDEN01", "report"], W)
     assert code == 0 and json.loads(report)["open_by_priority"]["urgent"] == 1
     assert run(db, ["--as", "STU/21/0001", "report"], R)[0] == 1
+    assert run(db, ["--as", "STU/21/0001", "submit", "A-101", "electrical", "Second socket also sparks"], R)[0] == 0
+    code, insights = run(db, ["--as", "WARDEN01", "insights"], W)
+    data = json.loads(insights)
+    assert code == 0 and data["work_queue"] == [1, 2] and data["possible_duplicates"] == {"A-101/electrical": [1, 2]}
+    assert data["repeat_rooms"] == []                                    # 2 reports < threshold 3
 
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "hostel"
@@ -80,3 +85,4 @@ def test_layering_rules():
     assert imports_of("models") & {".repository", ".services", ".cli", "sqlite3"} == set()
     assert imports_of("services") & {"sqlite3", ".cli", "argparse"} == set()
     assert imports_of("reports") & {".repository", ".services", ".cli", "sqlite3"} == set()
+    assert imports_of("insights") & {".repository", ".services", ".cli", "sqlite3"} == set()

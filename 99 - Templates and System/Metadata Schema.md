@@ -16,6 +16,7 @@ All notes begin with YAML frontmatter. The validator ([[README]], section 7) enf
 | `aliases` | optional | list of strings | Alternative names for Obsidian search and linking |
 | `module` | lessons, labs, projects | exact module name | Filtering |
 | `module_code` | lessons, labs, projects | `ITT06102`, `GST06106`, `CST06103`, `ITT06105`, `CST06102`, `CST06101` | Filtering |
+| `modules` | cross-module notes | list of the module codes above; such notes use `module: "Cross-Module"` and `module_code: "multiple"` (not an official code) | Filtering integration notes |
 | `topic_id` | lessons, labs, projects, exams | e.g. `PY-06`, `LAB-CS-03`, `PRJ-PY-02`, `MOCK-DM-01` | Unique identity (validator checks uniqueness) |
 | `type` | all | `lesson`, `dashboard`, `curriculum-map`, `lab`, `project`, `exam`, `question-bank`, `case-study`, `artifact`, `template`, `index`, `mind-map`, `glossary`, `tracker`, `system` | Navigation, Dataview queries |
 | `unit` | lessons | `U<n> <name>` | Position in module hierarchy |

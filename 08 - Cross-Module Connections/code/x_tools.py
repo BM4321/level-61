@@ -181,3 +181,37 @@ def reorder_point(mean_daily_demand: float, lead_time_days: float, safety: float
 
 def eoq(annual_demand: float, order_cost: float, holding_cost_per_unit_year: float) -> float:
     return math.sqrt(2 * annual_demand * order_cost / holding_cost_per_unit_year)
+
+
+# ---------- X-CASE-01 exam results portal ----------
+
+def can_view_result(role: str, published: bool, own: bool, teaches: bool) -> bool:
+    """Exams officers see everything; lecturers see results for courses they teach; students see their own,
+    once published. Anything else (unknown roles included) is denied."""
+    if role == "exams_officer":
+        return True
+    if role == "lecturer":
+        return teaches
+    if role == "student":
+        return published and own
+    return False
+
+
+def approve_mark_change(maker: str, approver: str, approver_role: str) -> bool:
+    """Maker-checker: a change to a published mark needs a different person in an approving role."""
+    return approver != maker and approver_role in {"head_of_department", "exams_officer"}
+
+
+def results_digest(rows: list[tuple[str, str, float]]) -> str:
+    """SHA-256 over a canonical form of (student, course, mark) rows: order-independent, detects any change.
+    (Detects accidental or unauthorised edits only if the published digest itself is protected, e.g. signed.)"""
+    import hashlib
+    canonical = "\n".join(f"{s}|{c}|{m:.1f}" for s, c, m in sorted(rows))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def reorder_alerts(stock: dict[tuple[str, str], int], rop: dict[str, int], open_orders: set[tuple[str, str]],
+                   active: set[str]) -> list[tuple[str, str]]:
+    """(warehouse, sku) pairs to reorder: stock <= reorder point AND no open order AND the SKU is active."""
+    return sorted((w, sku) for (w, sku), qty in stock.items()
+                  if sku in active and qty <= rop[sku] and (w, sku) not in open_orders)
