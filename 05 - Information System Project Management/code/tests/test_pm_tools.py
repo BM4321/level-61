@@ -255,3 +255,48 @@ def test_pm16_agile_numbers():
     assert round(e.spi, 2) == 0.90 and round(e.cpi, 2) == 0.84
     e = EVM(24e6, 12e6, 10.5e6, 13e6)
     assert e.spi == 0.875 and round(e.cpi, 3) == 0.808 and round(e.eac_cpi / 1e6, 1) == 29.7
+
+
+# ------------------------------------------------------------------ CASE-02 and CASE-03
+C2 = [Activity("A", 2), Activity("B", 3, ("A",)), Activity("C", 4, ("B",)), Activity("D", 6, ("A",)),
+      Activity("E", 5, ("B",)), Activity("F", 3, ("C", "E")), Activity("G", 2, ("D",)), Activity("H", 2, ("F", "G")),
+      Activity("I", 2, ("H",)), Activity("J", 2, ("I",)), Activity("K", 2, ("J",))]
+C2_PERT = {"A": (1, 2, 3), "B": (2, 3, 5), "C": (3, 4, 7), "D": (4, 6, 12), "E": (3, 5, 8), "F": (2, 3, 5),
+           "G": (1, 2, 3), "H": (1, 2, 4), "I": (1, 2, 3), "J": (1, 2, 3), "K": (1, 2, 4)}
+C2_COST = {"A": 2e6, "B": 4.5e6, "C": 8e6, "D": 15e6, "E": 10e6, "F": 4.5e6, "G": 3e6, "H": 2e6, "I": 3e6,
+           "J": 2.5e6, "K": 1.5e6}
+
+
+def test_case02():
+    from pm_tools import cost_baseline, monte_carlo
+    s = cpm(C2)
+    assert s.duration == 21 and s.critical == ["A", "B", "E", "F", "H", "I", "J", "K"]
+    assert (s.total_float["C"], s.total_float["D"], s.total_float["G"]) == (1, 3, 3)
+    te, sd = pert_project(C2_PERT, s.critical)
+    assert round(te, 4) == 21.8333 and round(sd, 4) == 1.424 and round(prob_complete_by(22, te, sd), 3) == 0.547
+    runs = monte_carlo(C2, C2_PERT, 10_000, 2026)
+    assert sum(r <= 22 for r in runs) / len(runs) < prob_complete_by(22, te, sd)     # build machine: 0.4948
+    _per, cum = cost_baseline(s, C2, C2_COST)
+    assert sum(C2_COST.values()) == 56e6 and round(cum[11]) == 45_500_000
+    ev = percent_complete_ev(C2_COST, {"A": 1, "B": 1, "C": 0.75, "D": 1, "E": 0.8, "G": 0.5})
+    e = EVM(56e6, cum[11], ev, sum([2.1e6, 4.4e6, 6.0e6, 14.0e6, 8.5e6, 1.2e6]))
+    assert (ev, e.ac) == (37e6, 36.2e6)
+    assert round(e.spi, 3) == 0.813 and round(e.cpi, 3) == 1.022 and round(e.eac_cpi) == 54_789_189
+
+
+def test_case03():
+    from pm_tools import sprints_needed
+    custom = [-8e6, 3.5e6, 3.5e6, 3.5e6, 3.5e6]
+    saas = [-1.5e6, 1.2e6, 1.2e6, 1.2e6, 1.2e6]
+    assert (round(npv(0.15, custom)), round(irr(custom), 4), round(payback_period(custom), 2)) == (1_992_424, 0.2686, 2.29)
+    assert (round(npv(0.15, saas)), round(irr(saas), 4), payback_period(saas)) == (1_925_974, 0.7054, 1.25)
+    assert sprints_needed(64, [12, 14, 15]) == (5, 5, 6)
+    e = EVM(8e6, 4e6, 3.4e6, 3.9e6)
+    assert round(e.spi, 2) == 0.85 and round(e.cpi, 3) == 0.872 and round(e.eac_cpi) == 9_176_471
+
+
+def test_case_answer_notes():
+    assert round(npv(0.15, [-8e6] + [2.8e6] * 4)) == -6_061
+    assert round(npv(0.15, [-1.5e6] + [0.96e6] * 4)) == 1_240_779
+    slipped = [a if a.name != "D" else Activity("D", 10, ("A",)) for a in C2]
+    assert cpm(slipped).duration == 22 and cpm(slipped).critical == ["A", "D", "G", "H", "I", "J", "K"]
