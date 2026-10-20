@@ -159,7 +159,7 @@ How sensitive is A to the discount rate? At 18%, NPV = **3,421,112** (still posi
 - registry queue time cut by 80%;
 - zero timetable clashes for registered students.
 
-**Budget:** TZS 60 M (the investment plus contingency). **Milestones:** charter week 0, design week 7, UAT week 16, go-live week 19 (from the CPM in PM-06). **Authority:** the PM may reallocate up to 5% between work packages. **Sponsor:** the deputy vice-chancellor (Academic). The full version is in [[PM-A01 Project Charter]].
+**Budget:** the business case appraised a TZS 45 M investment. The detailed bottom-up estimate later raised the cost baseline to TZS 60 M, and the business case had to be re-appraised. See [[PM-09 Cost Estimation and Budgeting]] Example 3 for continued business justification in action. **Milestones:** charter week 0, design week 7, UAT week 16, go-live week 19 (from the CPM in PM-06). **Authority:** the PM may reallocate up to 5% between work packages. **Sponsor:** the deputy vice-chancellor (Academic). The full version is in [[PM-A01 Project Charter]].
 
 ## 11. Common mistakes
 | Mistake | Fix |

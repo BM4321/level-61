@@ -132,3 +132,71 @@ def test_pm05_pm06_practice_answers():
     assert cpm(late_d3).duration == 19 and cpm(late_d3).total_float["D"] == 1
     late_d5 = [a if a.name != "D" else Activity("D", 10, ("A",)) for a in REG]
     assert cpm(late_d5).duration == 20 and cpm(late_d5).critical == ["A", "D", "H", "I", "J", "K"]
+
+
+def test_monte_carlo_shows_merge_bias():
+    from pm_tools import monte_carlo
+    runs = monte_carlo(REG, REG_PERT, runs=10_000, seed=2026)
+    mean = sum(runs) / len(runs)
+    p21 = sum(r <= 21 for r in runs) / len(runs)
+    te, sd = pert_project(REG_PERT, ["A", "B", "E", "G", "J", "K"])
+    assert 19.7 < mean < 20.1                       # build machine: 19.864
+    assert 0.74 < p21 < prob_complete_by(21, te, sd)  # build machine: 0.7652 < analytic 0.7905
+
+
+def test_pm07_practice_answers():
+    from pm_tools import monte_carlo
+    assert round(prob_complete_by(33, 30, 2), 4) == 0.9332
+    te, sd = pert_project(REG_PERT, ["A", "B", "E", "G", "J", "K"])
+    assert round(duration_for_probability(0.80, te, sd), 3) == 21.048
+    narrower = dict(REG_PERT, D=(3, 5, 7))
+    base = monte_carlo(REG, REG_PERT, 10_000, 2026)
+    better = monte_carlo(REG, narrower, 10_000, 2026)
+    assert sum(r <= 21 for r in better) > sum(r <= 21 for r in base)   # build machine: 7735 vs 7652
+
+
+def test_resource_constrained_pm08():
+    from pm_tools import resource_constrained
+    end5, start5, prof5 = resource_constrained(REG, REG_DEV, 5)
+    assert end5 == 19 and max(prof5) == 5                      # levelling within float suffices
+    end4, start4, prof4 = resource_constrained(REG, REG_DEV, 4)
+    assert end4 == 23 and max(prof4) <= 4                      # E (3) and F (2) can no longer overlap
+    assert (start4["E"], start4["F"], start4["G"]) == (7, 13, 17)
+    assert resource_constrained(REG, REG_DEV, 3)[0] == 27
+    with pytest.raises(ValueError):
+        resource_constrained(REG, REG_DEV, 2)                  # E needs 3 developers
+
+
+def test_resource_leave_scenario_pm08():
+    from pm_tools import resource_constrained
+    end, start, _ = resource_constrained(REG, REG_DEV, 5, limit_at={8: 4, 9: 4})
+    assert end == 20 and start["F"] == 10 and start["G"] == 14
+
+
+REG_COST = {"A": 3e6, "B": 6e6, "C": 3e6, "D": 12e6, "E": 12e6, "F": 6e6, "G": 4.5e6, "H": 2e6, "I": 2.5e6,
+            "J": 2.4e6, "K": 0.6e6}
+
+
+def test_cost_baseline_pm09():
+    from pm_tools import cost_baseline
+    per, cum = cost_baseline(cpm(REG), REG, REG_COST)
+    assert sum(REG_COST.values()) == 54e6 and round(cum[-1]) == 54_000_000
+    assert [round(x) for x in cum] == [1_000_000, 2_000_000, 3_000_000, 8_400_000, 13_800_000, 17_700_000,
+                                       21_600_000, 27_500_000, 32_000_000, 36_500_000, 41_250_000, 44_500_000,
+                                       46_500_000, 48_000_000, 49_500_000, 51_000_000, 52_200_000, 53_400_000,
+                                       54_000_000]
+    assert round(per[3]) == 5_400_000                      # week 4: B, C, D all running
+    assert round(npv(0.12, [-60e6] + [18e6] * 4)) == -5_327_712
+    assert round(npv(0.12, [-60e6] + [22e6] * 4)) == 6_821_686 and round(irr([-60e6] + [22e6] * 4), 3) == 0.173
+
+
+def test_case01_week10_evm_pm10():
+    done = {"A": 1, "B": 1, "C": 1, "D": 1, "E": 0.4, "F": 0.5, "H": 1}
+    ev = percent_complete_ev(REG_COST, done)
+    ac = sum([3.2e6, 6.5e6, 2.8e6, 13.5e6, 6.0e6, 3.5e6, 2.2e6])
+    assert (ev, ac) == (33_800_000, 37_700_000)
+    e = EVM(bac=54e6, pv=36.5e6, ev=ev, ac=ac)
+    assert (e.sv, e.cv) == (-2_700_000, -3_900_000)
+    assert round(e.spi, 3) == 0.926 and round(e.cpi, 4) == 0.8966
+    assert round(e.eac_cpi) == 60_230_769 and e.eac_atypical == 57_900_000 and round(e.eac_cpi_spi) == 62_030_564
+    assert round(e.vac) == -6_230_769 and round(e.tcpi_bac, 4) == 1.2393 and round(e.tcpi_eac(60e6), 4) == 0.9058

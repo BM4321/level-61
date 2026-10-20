@@ -293,3 +293,73 @@ def crash_schedule(activities: list[Activity], crash: dict[str, tuple[float, flo
             current[n] = Activity(a.name, a.duration - 1, a.predecessors)
         total += cost
         steps.append((cpm(list(current.values())).duration, combo, cost))
+
+
+def sample_pert(rng, o: float, m: float, p: float) -> float:
+    """Draw from a Beta-PERT distribution (lambda = 4)."""
+    if p == o:
+        return o
+    a = 1 + 4 * (m - o) / (p - o)
+    b = 1 + 4 * (p - m) / (p - o)
+    return o + rng.betavariate(a, b) * (p - o)
+
+
+def monte_carlo(activities: list[Activity], estimates: dict[str, tuple[float, float, float]],
+                runs: int = 10_000, seed: int = 2026) -> list[float]:
+    """Simulated project durations: sample every activity, recompute CPM each run (captures merge bias)."""
+    import random
+
+    rng = random.Random(seed)
+    results = []
+    for _ in range(runs):
+        sampled = [Activity(a.name, sample_pert(rng, *estimates[a.name]), a.predecessors) for a in activities]
+        results.append(cpm(sampled).duration)
+    return results
+
+
+def resource_constrained(activities: list[Activity], demand: dict[str, int], limit: int,
+                         limit_at: dict[int, int] | None = None):
+    """Serial schedule generation (integer durations): start ready activities by least latest-start first,
+    only if the resource limit allows. Returns (project duration, start times, profile). A heuristic,
+    not guaranteed optimal; used to show that tight resource limits can extend the critical path.
+    limit_at optionally overrides the limit for specific periods (e.g. {8: 4, 9: 4} for leave).
+    """
+    cap = (lambda k: (limit_at or {}).get(k, limit))
+    sched = cpm(activities)
+    acts = {a.name: a for a in activities}
+    if any(demand.get(n, 0) > limit for n in acts):
+        raise ValueError("an activity needs more units than the limit")
+    start: dict[str, int] = {}
+    usage: dict[int, int] = defaultdict(int)
+    remaining = set(acts)
+    while remaining:
+        ready = [n for n in remaining if all(p in start for p in acts[n].predecessors)]
+        n = min(ready, key=lambda x: (sched.ls[x], x))
+        t = max((start[p] + int(acts[p].duration) for p in acts[n].predecessors), default=0)
+        d = int(acts[n].duration)
+        while any(usage[k] + demand.get(n, 0) > cap(k) for k in range(t, t + d)):
+            t += 1
+        start[n] = t
+        for k in range(t, t + d):
+            usage[k] += demand.get(n, 0)
+        remaining.remove(n)
+    end = max(start[n] + int(acts[n].duration) for n in acts)
+    return end, start, [usage[k] for k in range(end)]
+
+
+def cost_baseline(schedule: Schedule, activities: list[Activity], cost: dict[str, float],
+                  shift: dict[str, float] | None = None) -> tuple[list[float], list[float]]:
+    """Planned cost per period (each activity's cost spread evenly over its duration) and cumulative PV (S-curve)."""
+    acts = {a.name: a for a in activities}
+    shift = shift or {}
+    horizon = int(math.ceil(max(schedule.es[n] + shift.get(n, 0) + acts[n].duration for n in acts)))
+    per = [0.0] * horizon
+    for n, a in acts.items():
+        start = int(schedule.es[n] + shift.get(n, 0))
+        for t in range(start, start + int(a.duration)):
+            per[t] += cost.get(n, 0.0) / a.duration
+    cumulative, running = [], 0.0
+    for x in per:
+        running += x
+        cumulative.append(running)
+    return per, cumulative
