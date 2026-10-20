@@ -239,3 +239,19 @@ def test_pm12_to_pm16_helpers():
     assert fpif_pta(40e6, 4e6, 48e6, 0.8) == 45e6
     assert [fpif_final_price(ac, 40e6, 4e6, 48e6, 0.8) for ac in (38e6, 42e6, 46e6)] == [42.4e6, 45.6e6, 48e6]
     assert sprints_needed(120, [18, 22, 20, 24]) == (5, 6, 7)
+
+
+def test_pm14_practice():
+    from pm_tools import fpif_final_price, fpif_pta
+    assert round(fpif_pta(100, 10, 120, 0.7), 2) == 114.29
+    assert round(fpif_final_price(110, 100, 10, 120, 0.7), 9) == 117.0
+    assert 20 / 0.8 == 25 and 30 / 1.5 == 20          # make-or-buy break-even months (hosting; practice 3)
+
+
+def test_pm16_agile_numbers():
+    from pm_tools import sprints_needed
+    assert sprints_needed(90, [15, 18, 21]) == (5, 5, 6)
+    e = EVM(18e6, 9e6, 8.1e6, 9.6e6)
+    assert round(e.spi, 2) == 0.90 and round(e.cpi, 2) == 0.84
+    e = EVM(24e6, 12e6, 10.5e6, 13e6)
+    assert e.spi == 0.875 and round(e.cpi, 3) == 0.808 and round(e.eac_cpi / 1e6, 1) == 29.7
