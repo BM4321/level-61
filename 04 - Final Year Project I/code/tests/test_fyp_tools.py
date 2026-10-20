@@ -1,7 +1,7 @@
 import pytest
 
-from fyp_tools import (adjust_for_response_rate, cochran_n0, cronbach_alpha, finite_correction, likert_summary,
-                       sus_score, yamane)
+from fyp_tools import (adjust_for_response_rate, alignment_gaps, citation_crosscheck, cochran_n0, cronbach_alpha,
+                       finite_correction, identifier_scan, likert_summary, sus_score, word_budget, yamane)
 
 ITEMS = [[4, 5, 3, 4, 2, 5, 4, 3], [4, 4, 3, 5, 2, 5, 4, 3], [3, 5, 2, 4, 1, 4, 4, 3], [5, 4, 3, 4, 2, 5, 5, 2]]
 
@@ -60,3 +60,46 @@ def test_fyp07_running_example_numbers():
 def test_fyp07_practice():
     assert finite_correction(cochran_n0(), 800) == 260 and yamane(800) == 267
     assert sus_score([5, 1] * 5) == 100.0
+
+
+def test_fyp10_citation_crosscheck():
+    body = ("Maintenance requests are often lost (Mwakyusa, 2021). Smith and Jones (2019) found delays; "
+            "Okafor et al. (2020) proposed a ticketing model. Later work (Mwakyusa, 2021) agrees.")
+    refs = ["Mwakyusa, A. (2021). Title. Journal.", "Smith, B., & Jones, C. (2019). Title. Publisher.",
+            "Lee, D. (2018). Title. Journal."]
+    assert citation_crosscheck(body, refs) == {"missing_from_references": ["Okafor 2020"],
+                                               "never_cited": ["Lee 2018"]}
+    with pytest.raises(ValueError):
+        citation_crosscheck(body, ["no year here"])
+
+
+def test_fyp10_identifier_scan():
+    t = "Interviewee Neema (neema.k@student.example, 0712 345 678, reg ABC/21/01234) said Neema's room leaks."
+    assert identifier_scan(t, ["Neema"]) == {"email": 1, "phone": 1, "student_id": 1, "known_names": 2}
+    assert identifier_scan("P07 said the room in Block C leaks.", ["Neema"]) == {
+        "email": 0, "phone": 0, "student_id": 0, "known_names": 0}
+
+
+def test_fyp11_alignment_and_word_budget():
+    rows = [dict(problem="Unknown current process", rq="RQ1", objective="SO1", method="Interviews, survey",
+                 evaluation="Thematic summary"),
+            dict(problem="Unclear needs", rq="RQ2", objective="SO2", method="Elicitation", evaluation=""),
+            dict(problem="No tracking tool", rq="RQ3", objective="SO3", method="Design science build",
+                 evaluation="Tests passing"),
+            dict(problem="Unknown acceptability", rq="RQ3", objective="SO4", method="", evaluation="SUS")]
+    assert alignment_gaps(rows) == ["RQ2: no evaluation", "RQ3: no method", "RQ3: appears in 2 rows"]
+    w = word_budget(8000, {"Ch1": 15, "Ch2": 30, "Ch3": 30, "Ch4": 15, "Ch5": 10})
+    assert w == {"Ch1": 1200, "Ch2": 2400, "Ch3": 2400, "Ch4": 1200, "Ch5": 800}
+    w = word_budget(7000, {"Ch1": 1, "Ch2": 2, "Ch3": 2, "Ch4": 1, "Ch5": 0.7})
+    assert w == {"Ch1": 1045, "Ch2": 2090, "Ch3": 2089, "Ch4": 1045, "Ch5": 731} and sum(w.values()) == 7000
+    with pytest.raises(ValueError):
+        word_budget(100, {"a": 0})
+
+
+def test_fyp12_defence_timing():
+    weights = {"Problem and RQs": 2, "Literature and gap": 2, "Methodology": 3, "Design plan": 2,
+               "Work plan and ethics": 2, "Summary": 1}
+    assert word_budget(900, weights) == {"Problem and RQs": 150, "Literature and gap": 150, "Methodology": 225,
+                                         "Design plan": 150, "Work plan and ethics": 150, "Summary": 75}
+    t = word_budget(600, weights)
+    assert t["Methodology"] == 150 and t["Summary"] == 50 and sum(t.values()) == 600

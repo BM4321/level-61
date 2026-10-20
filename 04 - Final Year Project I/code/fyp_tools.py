@@ -81,3 +81,65 @@ _DOI = __import__("re").compile(r"^10\.\d{4,9}/\S+$")
 def looks_like_doi(text: str) -> bool:
     """Syntax check only. A well-formed DOI can still be fake: resolve it at https://doi.org/ and read the paper."""
     return bool(_DOI.match(text.strip()))
+
+
+_CITE = __import__("re").compile(
+    r"\b([A-Z][A-Za-z'\-]+)(?: et al\.| (?:and|&) [A-Z][A-Za-z'\-]+)?,? \(?(\d{4}[a-z]?)\)?")
+
+
+def citation_crosscheck(body: str, references: list[str]) -> dict[str, list[str]]:
+    """Author-year consistency check: citations with no reference entry, and references never cited.
+
+    Keys are 'Surname Year' of the FIRST author. A match proves only consistency, never that the source exists.
+    """
+    cited = {f"{m.group(1)} {m.group(2)}" for m in _CITE.finditer(body)}
+    listed = {}
+    for ref in references:
+        m = __import__("re").match(r"\s*([A-Z][A-Za-z'\-]+),.*?\((\d{4}[a-z]?)\)", ref)
+        if not m:
+            raise ValueError(f"cannot parse reference: {ref!r}")
+        listed[f"{m.group(1)} {m.group(2)}"] = ref
+    return {"missing_from_references": sorted(cited - listed.keys()),
+            "never_cited": sorted(listed.keys() - cited)}
+
+
+_IDENTIFIERS = {
+    "email": r"[\w.+-]+@[\w-]+\.[\w.-]+",
+    "phone": r"(?:\+\d{1,3}[ -]?)?\d{3}[ -]?\d{3}[ -]?\d{3,4}\b",
+    "student_id": r"\b[A-Z]{2,4}/\d{2,4}/\d{3,6}\b",
+}
+
+
+def identifier_scan(text: str, names: list[str] = ()) -> dict[str, int]:
+    """Count likely direct identifiers in a transcript before it is shared. A zero count is not proof of anonymity."""
+    import re
+    counts = {k: len(re.findall(p, text)) for k, p in _IDENTIFIERS.items()}
+    counts["known_names"] = sum(len(re.findall(rf"\b{re.escape(n)}\b", text)) for n in names)
+    return counts
+
+
+ALIGNMENT_FIELDS = ("problem", "rq", "objective", "method", "evaluation")
+
+
+def alignment_gaps(rows: list[dict[str, str]]) -> list[str]:
+    """Report empty cells in a problem-RQ-objective-method-evaluation matrix, and RQs or objectives used twice."""
+    gaps = []
+    for i, row in enumerate(rows, 1):
+        label = row.get("rq") or f"row {i}"
+        gaps += [f"{label}: no {f}" for f in ALIGNMENT_FIELDS if not row.get(f, "").strip()]
+    for f in ("rq", "objective"):
+        seen = [r[f] for r in rows if r.get(f, "").strip()]
+        gaps += [f"{v}: appears in {seen.count(v)} rows" for v in sorted(set(seen)) if seen.count(v) > 1]
+    return gaps
+
+
+def word_budget(total: int, weights: dict[str, float]) -> dict[str, int]:
+    """Split a word limit across sections in proportion to weights; largest-remainder rounding keeps the exact total."""
+    if total < 0 or not weights or any(w < 0 for w in weights.values()) or sum(weights.values()) == 0:
+        raise ValueError("need a non-negative total and non-negative weights with a positive sum")
+    s = sum(weights.values())
+    raw = {k: total * w / s for k, w in weights.items()}
+    out = {k: int(v) for k, v in raw.items()}
+    for k in sorted(raw, key=lambda k: raw[k] - out[k], reverse=True)[: total - sum(out.values())]:
+        out[k] += 1
+    return out
