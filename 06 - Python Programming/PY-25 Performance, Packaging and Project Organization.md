@@ -247,7 +247,7 @@ def configure_logging(verbose: bool = False, logfile: str | None = None) -> None
 Logs go to **stderr**, so stdout stays clean for program output (it can be piped). `force=True` (3.8+) replaces any earlier configuration, which is useful in tests. Library modules only call `logging.getLogger(__name__)`. They never call `basicConfig`.
 
 ## 10. Application
-[[PRJ-PY-05 Hostel Maintenance System]] follows the src layout with a `pyproject.toml` entry point `hostel = "hostel.cli:main"`, module-level loggers, an audit log of status changes, and a `CHANGELOG.md`. Its README documents installation, usage, architecture and the testing commands. Those are deliverables your final-year project will also need ([[FYP-08 Technical Architecture and Design Planning]]).
+[[PRJ-PY-05 Hostel Maintenance System]] follows the src layout with a `pyproject.toml` entry point `hostel = "hostel.cli:main"`, module-level loggers, an audit log of status changes (the `status_history` table), and a changelog (`CHANGES.txt`; plain-text names keep them from clashing with this vault's own README and CHANGELOG notes). Its `README.txt` documents installation, usage, architecture and the testing commands. Those are deliverables your final-year project will also need ([[FYP-08 Technical Architecture and Design Planning]]).
 
 ## 11. Common mistakes
 | Mistake | Fix |

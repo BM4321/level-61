@@ -1,0 +1,14 @@
+Changes
+=======
+
+1.0.0
+-----
+Added
+- Request lifecycle state machine (new, assigned, in_progress, resolved, closed,
+  rejected, reopened within 7 days) with role and ownership checks.
+- Status history written in the same transaction as each status change.
+- Optimistic concurrency check on every status update.
+- scrypt password hashing with rehash-on-login, a length/blocklist policy,
+  exponential login backoff, and single-use reset tokens stored as hashes.
+- SQLite and in-memory repositories behind one interface.
+- argparse CLI with an entry point, and a JSON summary report.

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hostel-maintenance"
+version = "1.0.0"
+description = "Maintenance request tracking for student hostels (teaching project)"
+readme = "README.txt"
+requires-python = ">=3.10"
+dependencies = []                       # standard library only
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "mypy"]
+
+[project.scripts]
+hostel = "hostel.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -310,7 +310,7 @@ class OrderService:
 Tests pass a fake sender that records messages instead of sending real email, the same dependency-injection idea as in [[PY-15 Exceptions and Defensive Programming]]. This is the **Strategy**/**Observer** family of patterns ([[SD-12 Behavioral Design Patterns]]).
 
 ## 10. Application
-[[PRJ-PY-05 Hostel Maintenance System]] defines a `Repository` interface (an ABC with `add`, `get` and `list`) with `InMemoryRepository` for tests and `SqliteRepository` for production. The services receive a repository through their constructor (composition and dependency inversion), so the whole business layer is tested without a database.
+[[PRJ-PY-05 Hostel Maintenance System]] defines a `HostelRepository` interface (an ABC with `add_…`, `get_…` and `list_…` methods per entity, plus the atomic `save_change`) with `InMemoryRepository` for tests and `SqliteRepository` for production. The services receive a repository through their constructor (composition and dependency inversion), so the whole business layer is tested without a database.
 
 ## 11. Common mistakes
 | Mistake | Symptom | Fix |
