@@ -90,7 +90,7 @@ python -m pytest                  # runs tests against the reference solutions
 python examples/py06_functions.py # run any example directly
 ```
 
-Projects in `10 - Projects and Practical Labs/Python Projects/` each have their own `README.md` and test suite.
+Projects in `10 - Projects and Practical Labs/Python Projects/` each have a project note with run instructions, and their own test suite (`python -m pytest` inside the project folder). See [[Labs and Projects Index]].
 
 ## 7. Maintaining the vault
 

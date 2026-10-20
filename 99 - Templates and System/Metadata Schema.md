@@ -22,7 +22,7 @@ All notes begin with YAML frontmatter. The validator ([[README]], section 7) enf
 | `unit` | lessons | `U<n> <name>` | Position in module hierarchy |
 | `difficulty` | lessons | `beginner`, `intermediate`, `advanced` | Planning |
 | `syllabus_status` | lessons | `provisional-core`, `supplementary`, `optional-advanced`, `verified` | Separates core from enrichment ([[Syllabus Verification Log]]) |
-| `status` | lessons | `not-started`, `learning`, `reviewing`, `mastered` | Progress |
+| `status` | lessons | `not-started`, `learning`, `reviewing`, `mastered`; `incomplete` marks a note the build left unfinished ([[BUILD-STATUS]]) | Progress |
 | `mastery` | lessons | integer 0–5 ([[Mastery Rubric]]) | Competence, not reading |
 | `prerequisites` | lessons | list of wikilinks | Dependency graph |
 | `related` | optional | list of wikilinks | Cross-links |

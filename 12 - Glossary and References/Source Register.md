@@ -9,7 +9,7 @@ tags:
 # Source Register
 
 > [!warning] Verification status
-> **No source in this register was checked online during the build: the build environment had no network access.** The bibliographic details come from the author's knowledge of widely known works and standards, and may contain errors (editions, page ranges, URLs). Before you cite any of them, find the source yourself, check the details, and read the part you rely on ([[Citation Conventions]], [[FYP-10 Research Ethics, Privacy, Academic Integrity and Citation]]). Where a lesson says a book is "widely used", that does **not** mean it is your prescribed text: see [[Syllabus Verification Log]].
+> **No source in this register was opened or checked during the build.** The build container had no direct network access; the only online activity was a few web searches, recorded in [[Syllabus Verification Log]] and [[PRJ-PY-04 Weather API Client]], and search results don't verify a source's details. The bibliographic details come from the author's knowledge of widely known works and standards, and may contain errors (editions, page ranges, URLs). Before you cite any of them, find the source yourself, check the details, and read the part you rely on ([[Citation Conventions]], [[FYP-10 Research Ethics, Privacy, Academic Integrity and Citation]]). Where a lesson says a book is "widely used", that does **not** mean it is your prescribed text: see [[Syllabus Verification Log]].
 
 This register is generated from the "Sources" sections of the lessons, so it lists exactly what the vault cites. Regenerate it after adding sources.
 

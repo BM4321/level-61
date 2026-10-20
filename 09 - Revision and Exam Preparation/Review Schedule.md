@@ -26,7 +26,7 @@ After a passed D+30 review, review the topic monthly until the exam, or as part 
 3. Each Sunday, list the reviews due in the coming week ([[Weekly Study Planner]]).
 
 ## Due this week (Dataview)
-If the Dataview plugin is installed, this table lists every lesson whose review is due within 7 days:
+If the Dataview plugin is installed, this table lists every lesson whose review is due within 7 days (the query was not run in Obsidian during the build; the manual log below always works):
 
 ```dataview
 TABLE module, topic_id, mastery, next_review
