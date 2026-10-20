@@ -34,7 +34,7 @@ tags:
 > **Unit:** U5 · **Time:** 5 h · **Code:**
 > - in LabBook: `rules.py` (Strategy), `events.py` (Observer), `domain.ALLOWED` (a table-driven state machine);
 > - in `code/patterns/behavioral.py`: `WaitingList` (Observer, case-study exercise 1), `BookCommand` + `CommandHistory` (Command with undo), `RepairTicket` (State pattern, class per state);
-> - tests in `tests/test_patterns_behavioral.py`. All 34 SD tests pass, and mypy reports no issues.
+> - tests in `tests/test_patterns_behavioral.py`. All SD tests pass, and mypy reports no issues.
 
 ## 1. Learning objectives
 1. **Describe** the intent, structure and consequences of Strategy, Observer, State, Command, Template Method, Chain of Responsibility and Iterator.

@@ -18,7 +18,7 @@ tags:
 # SD-CASE LabBook Running Case Study
 
 > [!info] What this is
-> **LabBook** is a *fictional* booking system for a university's computer laboratories. Every SD lesson uses it, so that requirements, architecture, UML, patterns, tests and deployment all describe the same system. The reference implementation is in `code/labbook/` (Python 3.10+, standard library only). Its tests (17 for LabBook, plus traceability and tool tests; 25 in total) run against both the in-memory and SQLite repositories, and mypy reports no issues.
+> **LabBook** is a *fictional* booking system for a university's computer laboratories. Every SD lesson uses it, so that requirements, architecture, UML, patterns, tests and deployment all describe the same system. The reference implementation is in `code/labbook/` (Python 3.10+, standard library only). Its test suite (41 passing tests plus 1 expected failure documenting the concurrency defect, including LabBook, pattern, traceability and dependency-rule tests) runs the repository and use-case tests against both the in-memory and SQLite repositories, and mypy reports no issues.
 
 ## 1. Vision
 *"Students, lecturers and technicians can see lab availability and book workstations or whole labs quickly and fairly, without double bookings or paper sign-up sheets."*
@@ -44,11 +44,13 @@ tags:
 | FR-07 | Only the booker may check in; a booking moves REQUESTED → CONFIRMED → CHECKED_IN → COMPLETED | `domain.Booking.transition` |
 | FR-08 | Users are notified of confirmations and cancellations | `events.EventBus` + `Outbox` |
 | FR-09 | A slot must end after it starts and last at most 8 hours (found missing during the SD-04 traceability exercise) | `domain.TimeSlot` |
+| FR-10 | A user can list their own bookings in time order (its test was added after the SD-14 coverage check) | `BookingService.my_bookings` |
 | NFR-01 | Every booking state change is auditable | `events.AuditLog` |
 | NFR-02 | Business rules can be added without changing the booking service | `rules.RuleSet` (open/closed) |
 | NFR-03 | Storage can change (in-memory, SQLite, later a server database) without changing the service | `repository` protocol |
 | NFR-04 | A failing notification must not cancel a booking | `EventBus.publish` isolates subscribers |
 | NFR-05 | The booking service is testable in isolation with substitute rules | Constructor injection in `BookingService` |
+| NFR-06 | Repositories reject saving bookings that were never added | `repository.save` |
 
 The full requirement → test matrix is kept as code in `tests/test_traceability.py`, so CI fails if a requirement loses its tests.
 

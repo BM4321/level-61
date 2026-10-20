@@ -222,7 +222,7 @@ Change request: "Quota becomes 2 hours per *day* in deadline weeks."
 > - **Risk:** overlap logic already uses full datetimes, so it's safe. Confirm this with a test.
 
 > [!success]- Solution 9 (guidance)
-> Add, for example, "FR-10: When a booking is cancelled, the first user on the slot's waiting list shall be offered it" and "FR-11: Offers expire after 15 minutes". Implement a `WaitingList` subscriber to `booking.cancelled` (Observer, [[SD-12 Behavioral Design Patterns]]), write tests, and add `LINKS` entries. The traceability test fails until every new requirement has a test and every new test a requirement.
+> Add, for example, "FR-13: When a booking is cancelled, the first user on the slot's waiting list shall be offered it" and "FR-14: Offers expire after 15 minutes". Implement a `WaitingList` subscriber to `booking.cancelled` (Observer, [[SD-12 Behavioral Design Patterns]]), write tests, and add `LINKS` entries. The traceability test fails until every new requirement has a test and every new test a requirement.
 
 ## 16. Self-test (pass ≥ 4/5)
 1. Which direction does the «extend» arrow point? 2. What does an extension numbered "4a" mean? 3. What does backward traceability detect? 4. Which INVEST letter does "manage reservations" fail most? 5. Give one use of an RTM in a change request.

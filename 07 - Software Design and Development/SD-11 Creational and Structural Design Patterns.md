@@ -34,7 +34,7 @@ tags:
 > **Unit:** U5 · **Time:** 5 h · **Code:**
 > - `code/patterns/creational.py` (`BookingBuilder`, the `rules_from_config` factory) and `code/patterns/structural.py` (`LoggingRepository` decorator, `SmsNotificationAdapter`);
 > - in LabBook itself: `RuleSet` (Composite) and `app.create_app` (factory / composition root);
-> - tests in `tests/test_patterns_structural_creational.py`; all 31 SD tests pass, and mypy reports no issues.
+> - tests in `tests/test_patterns_structural_creational.py`; all SD tests pass, and mypy reports no issues.
 
 ## 1. Learning objectives
 1. **Describe** the intent, structure, participants and consequences of: Factory Method / simple factory, Abstract Factory, Builder, Singleton, Adapter, Decorator, Composite, Facade, Proxy.

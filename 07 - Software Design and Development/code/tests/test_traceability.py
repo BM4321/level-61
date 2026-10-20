@@ -17,6 +17,8 @@ REQUIREMENTS = {
     "NFR-03": "Storage can change without changing the service",
     "NFR-04": "A failing notification must not cancel a booking",
     "NFR-05": "The booking service is testable in isolation with substitute rules",
+    "FR-10": "A user can list their own bookings in time order",
+    "NFR-06": "Repositories reject saving bookings that were never added",
 }
 LINKS = {
     "FR-01": ["test_book_confirm_notify"],
@@ -33,6 +35,8 @@ LINKS = {
     "NFR-03": ["test_repository_contract"],
     "NFR-04": ["test_failing_subscriber_does_not_break_booking"],
     "NFR-05": ["test_service_with_fake_rules_is_easy_to_test"],
+    "FR-10": ["test_my_bookings_sorted"],
+    "NFR-06": ["test_save_unknown_booking_raises"],
 }
 
 

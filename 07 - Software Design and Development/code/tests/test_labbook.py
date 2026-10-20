@@ -170,3 +170,19 @@ def test_cli(capsys):
     assert "booking #1 confirmed" in capsys.readouterr().out
     assert main(["--user", "u-amina", "--ws", "LAB1-03", "--start", "2026-03-02T09:00", "--end", "2026-03-02T11:00"]) == 1
     assert "out of service" in capsys.readouterr().out
+
+
+# ------------------------------------------------------------------ gaps found by line_coverage.py (SD-14)
+def test_my_bookings_sorted(app):
+    svc, _, _ = app
+    svc.book("u-amina", "LAB1-02", slot(3, 14, 15))
+    svc.book("u-amina", "LAB1-01", slot(2, 9, 10))
+    assert [b.slot.start.day for b in svc.my_bookings("u-amina")] == [2, 3]
+    assert svc.my_bookings("u-baraka") == []
+
+
+def test_save_unknown_booking_raises(repo):
+    with pytest.raises(NotFound):
+        repo.save(Booking(None, "u", "W1", slot(2, 9, 10)))      # never added
+    with pytest.raises(NotFound):
+        repo.save(Booking(77, "u", "W1", slot(2, 9, 10)))        # unknown id
