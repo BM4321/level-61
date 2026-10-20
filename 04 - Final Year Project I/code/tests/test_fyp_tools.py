@@ -48,3 +48,15 @@ def test_boolean_query():
 def test_doi_syntax_only():
     assert looks_like_doi("10.1145/1273445.1273458")
     assert not looks_like_doi("https://example.com/paper") and not looks_like_doi("10.12/x")
+
+
+def test_fyp07_running_example_numbers():
+    n0 = cochran_n0()
+    assert finite_correction(n0, 2400) == 332 and yamane(2400) == 343
+    assert adjust_for_response_rate(332, 0.5) == 664
+    assert finite_correction(cochran_n0(0.95, 0.5, 0.10), 2400) == 93
+
+
+def test_fyp07_practice():
+    assert finite_correction(cochran_n0(), 800) == 260 and yamane(800) == 267
+    assert sus_score([5, 1] * 5) == 100.0

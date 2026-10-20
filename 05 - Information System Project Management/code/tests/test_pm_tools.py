@@ -300,3 +300,20 @@ def test_case_answer_notes():
     assert round(npv(0.15, [-1.5e6] + [0.96e6] * 4)) == 1_240_779
     slipped = [a if a.name != "D" else Activity("D", 10, ("A",)) for a in C2]
     assert cpm(slipped).duration == 22 and cpm(slipped).critical == ["A", "D", "G", "H", "I", "J", "K"]
+
+
+def test_fyp09_semester_plan():
+    """The FYP-09 example: the first plan needs 18 weeks; the compressed plan fits 15 with zero buffer."""
+    plan = [Activity("A", 2), Activity("B", 1, ("A",)), Activity("C", 2, ("B",)), Activity("D", 1, ("C",)),
+            Activity("E", 1, ("B",)), Activity("F", 1, ("E",)), Activity("G", 3, ("F",)), Activity("H", 2, ("G",)),
+            Activity("I", 2, ("H", "D")), Activity("J", 1, ("I",)), Activity("K", 2, ("J", "D")),
+            Activity("L", 1, ("K",)), Activity("M", 1, ("L",)), Activity("N", 1, ("M",))]
+    s = cpm(plan)
+    assert s.duration == 18 and s.critical == ["A", "B", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"]
+    assert s.total_float["C"] == 4
+    slow_ethics = [a if a.name != "G" else Activity("G", 5, ("F",)) for a in plan]
+    assert cpm(slow_ethics).duration == 20
+    compressed = [a for a in plan if a.name not in "HIJK"] + [
+        Activity("H", 1, ("G",)), Activity("I", 1, ("H", "D")), Activity("J", 1, ("H",)), Activity("K", 2, ("I", "J", "D"))]
+    s2 = cpm(compressed)
+    assert s2.duration == 15 and s2.total_float["C"] == 3 and s2.total_float["G"] == 0
