@@ -23,3 +23,29 @@ def create_app(storage: str = "memory", path: str = ":memory:"):
     bus.subscribe("booking.cancelled", outbox)
     bus.subscribe("*", audit)
     return BookingService(repo, demo_directory(), bus), outbox, audit
+
+
+def create_app_from_env(env: dict[str, str] | None = None):
+    """Twelve-factor style configuration: storage choice and path come from the environment.
+
+    LABBOOK_STORAGE = memory | sqlite   (default: memory)
+    LABBOOK_DB      = path to the SQLite file (required when LABBOOK_STORAGE=sqlite)
+    """
+    import os
+
+    env = dict(os.environ) if env is None else env
+    storage = env.get("LABBOOK_STORAGE", "memory")
+    if storage not in ("memory", "sqlite"):
+        raise ValueError(f"LABBOOK_STORAGE must be 'memory' or 'sqlite', not {storage!r}")
+    if storage == "sqlite" and not env.get("LABBOOK_DB"):
+        raise ValueError("LABBOOK_DB is required when LABBOOK_STORAGE=sqlite")
+    return create_app(storage, env.get("LABBOOK_DB", ":memory:"))
+
+
+def health(service) -> dict[str, str]:
+    """Readiness probe: can we reach storage? Used by deployment tooling and monitoring."""
+    try:
+        service.repo.for_user("__healthcheck__")
+        return {"status": "ok", "storage": type(service.repo).__name__}
+    except Exception as exc:  # noqa: BLE001 - report any storage failure
+        return {"status": "error", "detail": type(exc).__name__}

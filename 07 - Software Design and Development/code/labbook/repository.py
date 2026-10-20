@@ -6,11 +6,14 @@ production can use SQLite (or anything else) without changing the service.
 from __future__ import annotations
 
 import sqlite3
+import threading
 from datetime import datetime
 from typing import Protocol
 
-from .domain import Booking, BookingStatus, TimeSlot
-from .errors import NotFound
+from .domain import ACTIVE, Booking, BookingStatus, TimeSlot
+from .errors import NotFound, RuleViolation
+
+_ACTIVE_VALUES = tuple(s.value for s in ACTIVE)
 
 
 class BookingRepository(Protocol):
@@ -25,11 +28,17 @@ class InMemoryBookingRepository:
     def __init__(self) -> None:
         self._rows: dict[int, Booking] = {}
         self._next = 1
+        self._lock = threading.Lock()
 
     def add(self, booking: Booking) -> Booking:
-        booking.booking_id = self._next
-        self._rows[self._next] = booking
-        self._next += 1
+        """Atomically re-check overlap and insert (the guarantee behind FR-02 under concurrency)."""
+        with self._lock:
+            if booking.active and any(b.active and b.ws_id == booking.ws_id and b.slot.overlaps(booking.slot)
+                                      for b in self._rows.values()):
+                raise RuleViolation("no-overlap", f"{booking.ws_id} was booked by someone else just now")
+            booking.booking_id = self._next
+            self._rows[self._next] = booking
+            self._next += 1
         return booking
 
     def get(self, booking_id: int) -> Booking:
@@ -66,8 +75,9 @@ class SqliteBookingRepository:
     CREATE INDEX IF NOT EXISTS ix_bookings_ws ON bookings (ws_id, start_at);
     """
 
-    def __init__(self, path: str = ":memory:") -> None:
-        self.conn = sqlite3.connect(path)
+    def __init__(self, path: str = ":memory:", timeout: float = 5.0) -> None:
+        # isolation_level=None: we control transactions explicitly (BEGIN IMMEDIATE below).
+        self.conn = sqlite3.connect(path, timeout=timeout, isolation_level=None, check_same_thread=False)
         self.conn.executescript(self.SCHEMA)
 
     @staticmethod
@@ -77,11 +87,28 @@ class SqliteBookingRepository:
                        BookingStatus(status))
 
     def add(self, booking: Booking) -> Booking:
-        with self.conn:
+        """Check-and-insert in ONE write transaction, so concurrent writers cannot both pass the check.
+
+        BEGIN IMMEDIATE takes SQLite's write lock up front; a second writer waits (up to `timeout`)
+        and then sees the first writer's committed row.
+        """
+        start, end = booking.slot.start.isoformat(), booking.slot.end.isoformat()
+        self.conn.execute("BEGIN IMMEDIATE")
+        try:
+            if booking.active:
+                clash = self.conn.execute(
+                    f"SELECT 1 FROM bookings WHERE ws_id = ? AND status IN ({','.join('?' * len(_ACTIVE_VALUES))})"
+                    " AND start_at < ? AND end_at > ? LIMIT 1",
+                    (booking.ws_id, *_ACTIVE_VALUES, end, start)).fetchone()
+                if clash:
+                    raise RuleViolation("no-overlap", f"{booking.ws_id} was booked by someone else just now")
             cur = self.conn.execute(
                 "INSERT INTO bookings (user_id, ws_id, start_at, end_at, status) VALUES (?,?,?,?,?)",
-                (booking.user_id, booking.ws_id, booking.slot.start.isoformat(), booking.slot.end.isoformat(),
-                 booking.status.value))
+                (booking.user_id, booking.ws_id, start, end, booking.status.value))
+            self.conn.execute("COMMIT")
+        except BaseException:
+            self.conn.execute("ROLLBACK")
+            raise
         booking.booking_id = cur.lastrowid
         return booking
 
@@ -92,9 +119,8 @@ class SqliteBookingRepository:
         return self._row_to_booking(row)
 
     def save(self, booking: Booking) -> None:
-        with self.conn:
-            cur = self.conn.execute("UPDATE bookings SET status = ? WHERE booking_id = ?",
-                                    (booking.status.value, booking.booking_id))
+        cur = self.conn.execute("UPDATE bookings SET status = ? WHERE booking_id = ?",   # autocommit
+                                (booking.status.value, booking.booking_id))
         if cur.rowcount == 0:
             raise NotFound(f"booking {booking.booking_id}")
 

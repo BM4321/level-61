@@ -144,7 +144,7 @@ flowchart LR
 |---|---|
 | "The system should be user-friendly and fast." | vague term 'user-friendly'; vague term 'fast'; weak/optional wording 'should'; no 'shall'/'must' |
 | "The system shall notify users and shall log all changes." | more than one 'shall' (split into separate requirements); universal quantifier without a measurable condition |
-| "Bookings must be confirmed within TBD seconds." | unresolved placeholder (TBD) |
+| "Bookings must be confirmed within `TBD` seconds." | unresolved placeholder (`TBD`) |
 | "The system shall be secure." | vague term 'secure' |
 | "The system shall allow a student to book a workstation for a slot of 30 to 240 minutes." | none |
 

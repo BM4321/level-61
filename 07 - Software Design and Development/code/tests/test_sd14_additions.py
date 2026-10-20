@@ -35,8 +35,8 @@ def test_cannot_cancel_after_check_in():
         svc.cancel("u-amina", b.booking_id)
 
 
-@pytest.mark.xfail(strict=True, reason="KNOWN DEFECT: overlap check is not atomic; fix is SD-17 / case-study exercise 5")
 def test_no_double_booking_under_concurrency(tmp_path):
+    """Was xfail (known defect) until the SD-17 fix made the repository check-and-insert atomic."""
     path = str(tmp_path / "lb.db")
     results, barrier = [], threading.Barrier(2)
 

@@ -12,7 +12,7 @@ tags:
 
 # Software Design and Development: CST06101 Dashboard
 
-**Credits:** 10 · **LTP (as supplied):** 2,2,0 (meaning unverified, see [[Module Register]]) · **Curriculum status:** PROVISIONAL (no official descriptor was supplied; see [[Syllabus Verification Log]]) · **Running example:** [[SD-CASE LabBook Running Case Study]] · **Code:** `07 - Software Design and Development/code/` (LabBook package plus the flawed-design clinic, 41 passing tests plus 1 documented expected failure, mypy-clean)
+**Credits:** 10 · **LTP (as supplied):** 2,2,0 (meaning unverified, see [[Module Register]]) · **Curriculum status:** PROVISIONAL (no official descriptor was supplied; see [[Syllabus Verification Log]]) · **Running example:** [[SD-CASE LabBook Running Case Study]] · **Code:** `07 - Software Design and Development/code/` (LabBook package plus the flawed-design clinic, 47 passing tests, mypy-clean)
 
 > [!todo] ▶ Next lesson
 > The first lesson in the table below whose mastery is below 3. If you are new: **[[SD-01 Software Engineering Fundamentals]]**.
@@ -55,7 +55,7 @@ Also: [[SD-CASE LabBook Running Case Study]] · [[SD Flawed Design Clinic]] · M
 - **Code:**
   ```bash
   cd "07 - Software Design and Development/code"
-  python -m pytest -q          # 41 passed, 1 xfailed (known concurrency defect, see SD-17)
+  python -m pytest -q          # 47 tests: LabBook, clinic, patterns, tools, traceability, concurrency
   python -m mypy labbook       # type check
   python -m labbook --user u-amina --ws LAB1-01 --start 2026-03-02T09:00 --end 2026-03-02T11:00
   ```

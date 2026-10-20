@@ -24,7 +24,7 @@ LINKS = {
     "FR-01": ["test_book_confirm_notify"],
     "FR-02": ["test_no_overlap_ignores_cancelled", "test_book_confirm_notify"],
     "FR-03": ["test_opening_hours"],
-    "FR-04": ["test_weekly_quota_students_only"],
+    "FR-04": ["test_weekly_quota_students_only", "test_quota_does_not_double_count_same_workstation"],
     "FR-05": ["test_cli"],
     "FR-06": ["test_cancel_permissions"],
     "FR-07": ["test_state_machine", "test_check_in_and_errors"],

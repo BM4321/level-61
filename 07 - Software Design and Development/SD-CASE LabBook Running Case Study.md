@@ -18,7 +18,7 @@ tags:
 # SD-CASE LabBook Running Case Study
 
 > [!info] What this is
-> **LabBook** is a *fictional* booking system for a university's computer laboratories. Every SD lesson uses it, so that requirements, architecture, UML, patterns, tests and deployment all describe the same system. The reference implementation is in `code/labbook/` (Python 3.10+, standard library only). Its test suite (41 passing tests plus 1 expected failure documenting the concurrency defect, including LabBook, pattern, traceability and dependency-rule tests) runs the repository and use-case tests against both the in-memory and SQLite repositories, and mypy reports no issues.
+> **LabBook** is a *fictional* booking system for a university's computer laboratories. Every SD lesson uses it, so that requirements, architecture, UML, patterns, tests and deployment all describe the same system. The reference implementation is in `code/labbook/` (Python 3.10+, standard library only). Its test suite (47 tests, including LabBook, pattern, traceability and dependency-rule tests) runs the repository and use-case tests against both the in-memory and SQLite repositories, and mypy reports no issues.
 
 ## 1. Vision
 *"Students, lecturers and technicians can see lab availability and book workstations or whole labs quickly and fairly, without double bookings or paper sign-up sheets."*
@@ -99,7 +99,8 @@ Each CLI run starts with a fresh in-memory store, so bookings don't persist betw
 
 ## 7. Known limitations (honest scope)
 - No authentication: user IDs are trusted. Real deployments need university single sign-on ([[SD-17 Secure and Reliable Software Design]]).
-- The overlap check isn't safe under concurrent requests: two simultaneous bookings could both pass. A real system needs a database constraint or a transaction with locking. (This is an SD-17 exercise.)
+- ~~The overlap check wasn't safe under concurrent requests.~~ **Fixed in SD-17:** the repositories now re-check overlap and insert atomically (a SQLite `BEGIN IMMEDIATE` transaction; a lock in memory). Before the fix, 200/200 concurrent runs double-booked; after it, 200/200 correctly refused the second booking. `test_no_double_booking_under_concurrency` guards it. A multi-server deployment on another database would still need a database-level constraint.
+- The weekly quota isn't atomic across workstations: concurrent bookings by one student can exceed it (measured 100/100 in SD-17; Practice 7 there). A student may also hold two workstations at once; no rule forbids it yet.
 - Times are naive local datetimes: no time zones.
 - Whole-lab reservations by lecturers are modelled only in the exercises.
 

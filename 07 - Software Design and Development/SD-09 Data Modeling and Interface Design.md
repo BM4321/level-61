@@ -79,7 +79,7 @@ A **functional dependency** X → Y means the values of X determine Y.
 | NOT NULL | Required data | `user_id`, `ws_id`, `start_at`, `end_at`, `status` |
 | CHECK | Domain rules | `status IN (...)`, `end_at > start_at` |
 | FOREIGN KEY | Referential integrity | (missing: users and workstations live in the Directory; see Example 3) |
-| UNIQUE / exclusion | No duplicates / no overlaps | (missing: the overlap rule is enforced only in code; see SD-08 Example 3) |
+| UNIQUE / exclusion | No duplicates / no overlaps | (not available in SQLite for time ranges; since SD-17 the repository enforces it with a `BEGIN IMMEDIATE` check-and-insert transaction) |
 | INDEX | Fast lookups | `ix_bookings_ws (ws_id, start_at)` |
 
 Rules enforced in the database also hold for other programs, scripts and concurrent requests, not just for well-behaved callers of the service.
@@ -211,7 +211,7 @@ The repository's schema contains `CHECK (end_at > start_at)` and a CHECK on the 
 
 **Gaps:**
 1. **No foreign keys.** `user_id` and `ws_id` could reference non-existent users or workstations; the service checks via the Directory, but other writers wouldn't. Fix: add USER and WORKSTATION tables with `FOREIGN KEY` (and `PRAGMA foreign_keys = ON`; SQLite enforces foreign keys only when this is enabled).
-2. **No overlap constraint.** Concurrent requests can double-book (SD-08 Example 3). Fix: serialise the check-and-insert in a transaction (`BEGIN IMMEDIATE`) in the repository, or, in PostgreSQL, use an exclusion constraint on `(ws_id WITH =, tsrange(start_at, end_at) WITH &&)` for active statuses.
+2. **No overlap constraint** (at the time of this lesson). Concurrent requests could double-book (SD-08 Example 3; measured in SD-14). Fix, as implemented in SD-17: serialise the check-and-insert in a transaction (`BEGIN IMMEDIATE`) in the repository, or, in PostgreSQL, use an exclusion constraint on `(ws_id WITH =, tsrange(start_at, end_at) WITH &&)` for active statuses.
 3. **Times stored as ISO text without a time zone.** That's acceptable for a single-campus system; document it as an assumption.
 
 Each gap is a design decision to record: either an ADR, or an issue to fix.

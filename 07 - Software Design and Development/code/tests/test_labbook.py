@@ -186,3 +186,13 @@ def test_save_unknown_booking_raises(repo):
         repo.save(Booking(None, "u", "W1", slot(2, 9, 10)))      # never added
     with pytest.raises(NotFound):
         repo.save(Booking(77, "u", "W1", slot(2, 9, 10)))        # unknown id
+
+
+def test_quota_does_not_double_count_same_workstation(app):
+    """Regression (found in SD-17): bookings on the same workstation were counted twice for the quota."""
+    svc, _, _ = app
+    svc.book("u-amina", "LAB1-01", slot(2, 9, 13))     # 4 h
+    svc.book("u-amina", "LAB1-01", slot(3, 9, 13))     # 8 h, previously refused as "12 h"
+    svc.book("u-amina", "LAB1-01", slot(4, 9, 11))     # exactly 10 h: allowed
+    with pytest.raises(RuleViolation):
+        svc.book("u-amina", "LAB1-01", slot(5, 9, 10))  # 11 h

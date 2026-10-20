@@ -31,7 +31,7 @@ tags:
 
 > [!info] Topic card
 > **Unit:** U6 · **Time:** 5 h · **Code:**
-> - LabBook tests: unit, contract (parametrised over two repositories), use-case, CLI, architecture (dependency rules) and traceability tests. **41 tests pass, and 1 test is an expected failure (`xfail`) documenting the known concurrency defect**, see Solution 9.
+> - LabBook tests: unit, contract (parametrised over two repositories), use-case, CLI, architecture (dependency rules) and traceability tests. **41 tests passed when this lesson was written, plus 1 expected failure (`xfail`) documenting the concurrency defect.** That defect was fixed in [[SD-17 Secure and Reliable Software Design]]; the suite now has 47 passing tests, and the xfail marker has been removed.
 > - `code/line_coverage.py`, a minimal statement-coverage tool written because `coverage.py` wasn't installed in the build environment. Its numbers approximate coverage.py, so use the real tool in your projects.
 
 ## 1. Learning objectives
@@ -291,7 +291,7 @@ def test_cannot_cancel_after_check_in():
 >     [t.start() for t in threads]; [t.join() for t in threads]
 >     assert sorted(map(str, results)) == ["BookingStatus.CONFIRMED", "refused"]
 > ```
-> **Measured during the build:** with the current code, 200 out of 200 runs ended with **both** bookings CONFIRMED, so the race isn't hypothetical. The test is in the suite as `tests/test_sd14_additions.py::test_no_double_booking_under_concurrency`, marked `xfail(strict=True)` with the reason "KNOWN DEFECT". `strict=True` means that once you fix the repository (transactional check-and-insert, SD-09 Practice 7 and [[SD-17 Secure and Reliable Software Design]]), pytest reports the unexpected pass, and you then remove the marker. Documenting a known defect with a failing test is more honest than hiding it.
+> **Measured during the build:** with the current code, 200 out of 200 runs ended with **both** bookings CONFIRMED, so the race isn't hypothetical. The test was added as `tests/test_sd14_additions.py::test_no_double_booking_under_concurrency`, marked `xfail(strict=True)` with the reason "KNOWN DEFECT". `strict=True` meant that once the repository was fixed (transactional check-and-insert, SD-09 Practice 7), pytest would report the unexpected pass. That's exactly what happened in [[SD-17 Secure and Reliable Software Design]], and the marker was then removed. Documenting a known defect with a failing test is more honest than hiding it.
 
 ## 16. Self-test (pass ≥ 4/5)
 1. For "10 ≤ x ≤ 20", which values does BVA test? 2. What does statement coverage *not* tell you? 3. Fake vs mock? 4. Which LabBook test is a contract test? 5. Which feature did coverage reveal as untested?

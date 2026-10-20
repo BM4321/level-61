@@ -39,7 +39,8 @@ class BookingService:
     def book(self, user_id: str, ws_id: str, slot: TimeSlot) -> Booking:
         user, ws = self.directory.user(user_id), self.directory.workstation(ws_id)
         booking = Booking(None, user_id, ws_id, slot)
-        existing = self.repo.for_workstation(ws_id) + self.repo.for_user(user_id)
+        # De-duplicate: a user's booking on this workstation appears in both lists (regression: FR-04 double count)
+        existing = list({b.booking_id: b for b in self.repo.for_workstation(ws_id) + self.repo.for_user(user_id)}.values())
         self.rules.check(booking, user, ws, existing)
         if self.auto_confirm:
             booking.transition(BookingStatus.CONFIRMED)

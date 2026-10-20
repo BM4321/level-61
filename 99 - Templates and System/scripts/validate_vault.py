@@ -121,7 +121,7 @@ def main() -> int:
         if words < MIN_WORDS and not in_templates and fm.get("type", "").strip('"') != "template":
             warnings.append(f"SHORT NOTE ({words} words): {rel}")
 
-        prose = strip_code(unquote(body))
+        prose = re.sub(r"`[^`\n]*`", "", strip_code(unquote(body)))  # mentions in inline code are deliberate
         for m in PLACEHOLDER.finditer(prose):
             warnings.append(f"PLACEHOLDER '{m.group(0)}': {rel}")
 
